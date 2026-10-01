@@ -1,0 +1,44 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Cairo", Tahoma, sans-serif;
+  --color-page: #0a1631;
+  --color-panel: #0e2149;
+  --color-panel-2: #132a5a;
+  --color-line: #22407a;
+  --color-head: #1a3366;
+  --color-ink: #e6edf9;
+  --color-muted: #8fa3c7;
+  --color-accent: #3b82f6;
+}
+
+html, body, #root { height: 100%; }
+body {
+  margin: 0;
+  background: var(--color-page);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+}
+input, textarea, select { user-select: text; }
+
+/* Numbers (amounts, codes) stay left-to-right inside the RTL layout. */
+.num { direction: ltr; unicode-bidi: isolate; font-variant-numeric: tabular-nums; }
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: #22407a; border-radius: 8px; border: 2px solid var(--color-page); }
+::-webkit-scrollbar-track { background: transparent; }
+
+input[type="number"]::-webkit-inner-spin-button { opacity: 0.4; }
+select option { background: var(--color-panel); }
+
+/* Printing a page (e.g. reports): light background, no app chrome. */
+@media print {
+  header, aside, button { display: none !important; }
+  body, main, section, #root { background: #fff !important; color: #000 !important; overflow: visible !important; height: auto !important; }
+  main { padding: 0 !important; }
+  section, .rounded-xl { border-color: #999 !important; box-shadow: none !important; break-inside: avoid; }
+  thead tr { background: #eee !important; color: #000 !important; }
+  * { color: #000 !important; }
+}
