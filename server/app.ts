@@ -22,6 +22,18 @@ const MAX_BODY = 4_000_000 // restoring a backup with product photos can be a fe
 let SETUP_CODE: string | null = process.env.SETUP_CODE?.trim() || null
 let started: Promise<void> | null = null
 
+/** A user-facing reason for a database failure. Never includes the connection string. */
+function dbErrorMessage(e: unknown) {
+  const err = e as { code?: string; message?: string }
+  const base = 'تعذّر الاتصال بقاعدة البيانات: '
+  if (err.code === '28P01') return base + 'كلمة المرور في DATABASE_URL غير صحيحة'
+  if (err.code === 'ENOTFOUND' || err.code === 'EAI_AGAIN') return base + 'عنوان الخادم في DATABASE_URL غير صحيح'
+  if (err.code === 'ETIMEDOUT' || err.code === 'ECONNREFUSED' || err.code === 'ENETUNREACH') return base + 'لا يمكن الوصول للخادم. استخدم رابط Transaction pooler (المنفذ 6543)'
+  if (/Tenant or user not found/i.test(err.message ?? '')) return base + 'اسم المستخدم في DATABASE_URL غير صحيح (يجب أن يكون postgres.رمز-المشروع)'
+  if (/DATABASE_URL is not set/.test(err.message ?? '')) return base + 'متغيّر DATABASE_URL غير موجود'
+  return base + (err.code ?? 'خطأ غير معروف')
+}
+
 /** Connect, create tables, maybe seed. Safe to call on every request (runs once). */
 export function ready() {
   started ??= (async () => {
@@ -99,7 +111,7 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse, name:
     await ready()
   } catch (e) {
     console.error('[db]', e)
-    return sendJson(res, 503, { ok: false, error: 'تعذّر الاتصال بقاعدة البيانات' })
+    return sendJson(res, 503, { ok: false, error: dbErrorMessage(e) })
   }
 
   const token = getCookie(req, 'sid')
