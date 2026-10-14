@@ -13,15 +13,16 @@
     "dist:win": "npm run build && electron-builder --win",
     "build:server": "vite build --config vite.server.config.ts",
     "start": "node dist-server/index.cjs",
-    "web": "npm run build && npm run build:server && node dist-server/index.cjs"
+    "web": "npm run build && npm run build:server && node dist-server/index.cjs",
+    "build:web": "tsc --noEmit && vite build"
   },
   "dependencies": {
-    "better-sqlite3": "^13.0.3"
+    "@electric-sql/pglite": "^0.5.9",
+    "postgres": "^3.4.9"
   },
   "devDependencies": {
     "@fontsource/cairo": "^5.3.0",
     "@tailwindcss/vite": "^4.3.3",
-    "@types/better-sqlite3": "^9.6.0",
     "@types/node": "^26.6.3",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
@@ -39,7 +40,6 @@
     "vite-plugin-electron": "^1.1.2"
   },
   "allowScripts": {
-    "better-sqlite3@13.0.3": true,
     "electron-winstaller@5.4.0": true,
     "electron@44.5.1": true
   },
@@ -50,12 +50,8 @@
       "output": "release"
     },
     "files": [
-      "dist/**",
       "dist-electron/**",
       "package.json"
-    ],
-    "asarUnpack": [
-      "node_modules/better-sqlite3/**"
     ],
     "npmRebuild": false,
     "mac": {

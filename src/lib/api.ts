@@ -1,23 +1,27 @@
-// Typed proxy over the backend: api.listProducts() runs listProducts on the other side.
-// Desktop app: over Electron IPC. Website: POST /api/<name>. Same calls, same permission checks.
-import type { ApiResult, Handlers } from '../../electron/handlers'
+// Typed proxy over the website API: api.listProducts() -> POST /api/listProducts.
+// The desktop app opens this same website, so there is one path for everyone.
+import type { Handlers } from '../../electron/api'
+import type { DesktopBridge } from '../../shared/desktop'
 import { webPlatform } from './webPlatform'
 
-type Api = { [K in keyof Handlers]: (...args: Parameters<Handlers[K]>) => Promise<Awaited<ReturnType<Handlers[K]>>> }
+type Async<T> = { [K in keyof T]: T[K] extends (...a: infer A) => infer R ? (...args: A) => Promise<Awaited<R>> : never }
+type Api = Async<Handlers> & Async<typeof webPlatform>
 
 declare global {
   interface Window {
-    bridge?: { invoke: (name: string, ...args: unknown[]) => Promise<ApiResult<unknown>> }
+    desktop?: DesktopBridge // present when the page runs inside the desktop app
   }
 }
 
-export const isDesktop = typeof window !== 'undefined' && !!window.bridge
+/** Running inside the desktop app (direct printing, device backups). */
+export const isDesktop = typeof window !== 'undefined' && !!window.desktop
 
 /** Fired when the server says the login is gone (expired, account stopped). The auth provider listens. */
 export const SESSION_LOST = 'session-lost'
 
-async function call(name: string, args: unknown[]): Promise<ApiResult<unknown>> {
-  if (window.bridge) return window.bridge.invoke(name, ...args)
+type Result = { ok: true; data: unknown } | { ok: false; error: string; status?: number }
+
+async function call(name: string, args: unknown[]): Promise<Result> {
   try {
     const r = await fetch(`api/${name}`, {
       method: 'POST',
@@ -25,7 +29,7 @@ async function call(name: string, args: unknown[]): Promise<ApiResult<unknown>> 
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ args }),
     })
-    return (await r.json()) as ApiResult<unknown>
+    return (await r.json()) as Result
   } catch {
     return { ok: false, error: 'تعذّر الاتصال بالخادم. تحقق من الإنترنت' }
   }
@@ -33,8 +37,8 @@ async function call(name: string, args: unknown[]): Promise<ApiResult<unknown>> 
 
 export const api = new Proxy({} as Api, {
   get: (_t, name: string) => async (...args: unknown[]) => {
-    // On the website, printing and file saving happen in the browser.
-    if (!isDesktop && Object.hasOwn(webPlatform, name)) return webPlatform[name as keyof typeof webPlatform](...(args as [never, never]))
+    // Printing and file saving happen on this side (browser or desktop app).
+    if (Object.hasOwn(webPlatform, name)) return (webPlatform[name as keyof typeof webPlatform] as (...a: unknown[]) => unknown)(...args)
     const res = await call(name, args)
     if (!res.ok) {
       if (res.status === 401 && name !== 'login') window.dispatchEvent(new Event(SESSION_LOST))

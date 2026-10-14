@@ -8,3 +8,5 @@ license-server/private.pem
 license-server/licenses.json
 dist-server/
 data/
+.env
+.env.local

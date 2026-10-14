@@ -3,6 +3,7 @@ import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { Home, ShoppingCart, Package, Wallet, Truck, BarChart3, Settings, ScanBarcode, PanelRightClose, PanelRightOpen, Plus, ShieldCheck, LogOut } from 'lucide-react'
 import { ScanDialog } from '../components/Barcode'
 import { StockAlerts } from '../components/StockAlerts'
+import { DesktopAutoBackup } from '../components/BackupPanel'
 import { useLastScan } from '../lib/scanner'
 import { useAuth } from '../lib/auth'
 import { isDesktop } from '../lib/api'
@@ -120,6 +121,7 @@ export default function Layout() {
       </div>
 
       {(can('inventory') || can('sales')) && <ScanDialog />}
+      {isDesktop && <DesktopAutoBackup />}
     </div>
   )
 }

@@ -2,11 +2,13 @@
 // Every function that changes accounts takes the acting user and checks the rules itself,
 // so they hold no matter which screen (or HTTP request) called them.
 import { createHash, randomBytes, scryptSync, timingSafeEqual } from 'node:crypto'
-import { getDb, nowLocal } from './index'
+import { nowLocal } from './index'
+import { q, tx, SQL_NOW } from './sql'
 import { ALL_PERMISSIONS, DEFAULT_EMPLOYEE_PERMISSIONS, type Permission, type Role, type User, type UserInput } from '../../shared/auth'
 
-const db = () => getDb()
 const SESSION_DAYS = 30
+const LOCK_AFTER = 8 // wrong passwords in a row
+const LOCK_MS = 15 * 60 * 1000
 const ROLES: Role[] = ['super_admin', 'admin', 'employee']
 
 type Row = Omit<User, 'permissions' | 'active'> & { permissions: string; active: number; password_hash: string }
@@ -45,52 +47,68 @@ const DUMMY_HASH = hashPassword(randomBytes(12).toString('hex'))
 
 // ---- Lookups ----
 
-export function getUser(id: number): User | null {
-  const r = db().prepare('SELECT * FROM users WHERE id = ?').get(id) as Row | undefined
+export async function getUser(id: number): Promise<User | null> {
+  const r = await q.one<Row>('SELECT * FROM users WHERE id = ?', id)
   return r ? toUser(r) : null
 }
 
 /** The user behind a session, only while the account is active. Read fresh on every call, so revoked rights apply at once. */
-export function activeUser(id: number | null | undefined): User | null {
+export async function activeUser(id: number | null | undefined): Promise<User | null> {
   if (!id) return null
-  const u = getUser(id)
+  const u = await getUser(id)
   return u?.active ? u : null
 }
 
-export const hasUsers = () => !!db().prepare('SELECT 1 FROM users LIMIT 1').get()
+export const hasUsers = async () => !!(await q.one('SELECT 1 FROM users LIMIT 1'))
 
-export function verifyLogin(username: string, password: string): User {
-  const r = db().prepare('SELECT * FROM users WHERE username = ?').get(String(username ?? '').trim()) as Row | undefined
+export async function verifyLogin(username: string, password: string): Promise<User> {
+  const r = await q.one<Row>('SELECT * FROM users WHERE lower(username) = lower(?)', String(username ?? '').trim())
   const ok = checkPassword(String(password ?? ''), r?.password_hash ?? DUMMY_HASH)
   if (!r || !ok) throw new Error('اسم المستخدم أو كلمة المرور غير صحيحة')
   if (!r.active) throw new Error('هذا الحساب موقوف. تواصل مع المسؤول')
-  const now = nowLocal()
-  db().prepare('UPDATE users SET last_login = ? WHERE id = ?').run(now, r.id)
+  const now = await nowLocal()
+  await q.run('UPDATE users SET last_login = ? WHERE id = ?', now, r.id)
   return toUser({ ...r, last_login: now })
 }
 
 // ---- Website sessions ----
 
 const sha256 = (s: string) => createHash('sha256').update(s).digest('hex')
+const SESSION_END = SQL_NOW.replace('now()', `(now() + interval '${SESSION_DAYS} days')`) // parentheses: AT TIME ZONE binds tighter than +
 
-export function createSession(userId: number) {
+export async function createSession(userId: number) {
   const token = randomBytes(32).toString('base64url')
-  db().prepare(`INSERT INTO sessions (token_hash, user_id, expires_at) VALUES (?, ?, datetime('now','localtime','+${SESSION_DAYS} days'))`).run(sha256(token), userId)
-  db().prepare("DELETE FROM sessions WHERE expires_at < datetime('now','localtime')").run()
+  await q.run(`INSERT INTO sessions (token_hash, user_id, expires_at) VALUES (?, ?, ${SESSION_END})`, sha256(token), userId)
+  await q.run(`DELETE FROM sessions WHERE expires_at < ${SQL_NOW}`)
   return { token, maxAgeSeconds: SESSION_DAYS * 86400 }
 }
 
-export function sessionUser(token: string | undefined): User | null {
+export async function sessionUser(token: string | undefined): Promise<User | null> {
   if (!token) return null
-  const row = db().prepare("SELECT user_id FROM sessions WHERE token_hash = ? AND expires_at > datetime('now','localtime')").get(sha256(token)) as { user_id: number } | undefined
+  const row = await q.one<{ user_id: number }>(`SELECT user_id FROM sessions WHERE token_hash = ? AND expires_at > ${SQL_NOW}`, sha256(token))
   return activeUser(row?.user_id)
 }
 
-export function deleteSession(token: string | undefined) {
-  if (token) db().prepare('DELETE FROM sessions WHERE token_hash = ?').run(sha256(token))
+export async function deleteSession(token: string | undefined) {
+  if (token) await q.run('DELETE FROM sessions WHERE token_hash = ?', sha256(token))
 }
 
-const endSessionsOf = (userId: number) => db().prepare('DELETE FROM sessions WHERE user_id = ?').run(userId)
+const endSessionsOf = (userId: number) => q.run('DELETE FROM sessions WHERE user_id = ?', userId)
+
+// ---- Wrong-password lockout (in the database, so it holds across every server instance) ----
+
+export async function assertNotLocked(key: string) {
+  const r = await q.one<{ locked_until: number }>('SELECT locked_until FROM login_attempts WHERE key = ?', key)
+  if (r && r.locked_until > Date.now()) throw new Error('محاولات كثيرة خاطئة. حاول بعد 15 دقيقة')
+}
+
+export async function noteLoginFail(key: string) {
+  await q.run(`INSERT INTO login_attempts (key, fails) VALUES (?, 1)
+    ON CONFLICT (key) DO UPDATE SET fails = login_attempts.fails + 1`, key)
+  await q.run('UPDATE login_attempts SET fails = 0, locked_until = ? WHERE key = ? AND fails >= ?', Date.now() + LOCK_MS, key, LOCK_AFTER)
+}
+
+export const clearLoginFails = (key: string) => q.run('DELETE FROM login_attempts WHERE key = ?', key)
 
 // ---- Account management ----
 
@@ -100,25 +118,29 @@ function cleanUsername(username: string) {
   return u
 }
 
-function assertUsernameFree(username: string, exceptId = 0) {
-  if (db().prepare('SELECT 1 FROM users WHERE username = ? AND id != ?').get(username, exceptId)) throw new Error('اسم المستخدم مستخدم لحساب آخر')
+async function assertUsernameFree(username: string, exceptId = 0) {
+  if (await q.one('SELECT 1 FROM users WHERE lower(username) = lower(?) AND id != ?', username, exceptId)) throw new Error('اسم المستخدم مستخدم لحساب آخر')
 }
 
-const activeSuperAdmins = () => (db().prepare("SELECT COUNT(*) AS c FROM users WHERE role = 'super_admin' AND active = 1").get() as { c: number }).c
+const activeSuperAdmins = async () => (await q.one<{ c: number }>("SELECT COUNT(*) AS c FROM users WHERE role = 'super_admin' AND active = 1"))!.c
 
-/** The very first account (desktop first run, or website setup). Always a super admin. */
-export function createFirstSuperAdmin(input: { username: string; name: string; password: string }): User {
-  if (hasUsers()) throw new Error('تم إنشاء حساب المسؤول مسبقاً')
+/** The very first account (website setup). Always a super admin. */
+export async function createFirstSuperAdmin(input: { username: string; name: string; password: string }): Promise<User> {
   const username = cleanUsername(input.username)
   const name = String(input.name ?? '').trim() || username
-  const id = db().prepare("INSERT INTO users (username, name, password_hash, role, permissions) VALUES (?, ?, ?, 'super_admin', '[]')")
-    .run(username, name, hashPassword(validPassword(input.password))).lastInsertRowid
-  return getUser(Number(id))!
+  const hash = hashPassword(validPassword(input.password))
+  const id = await tx(async () => {
+    // Serialise concurrent first-time setups: only one can create the first account.
+    await q.run('LOCK TABLE users IN EXCLUSIVE MODE')
+    if (await hasUsers()) throw new Error('تم إنشاء حساب المسؤول مسبقاً')
+    return q.insert("INSERT INTO users (username, name, password_hash, role, permissions) VALUES (?, ?, ?, 'super_admin', '[]')", username, name, hash)
+  })
+  return (await getUser(id))!
 }
 
-export function listUsers(actor: User): User[] {
+export async function listUsers(actor: User): Promise<User[]> {
   if (actor.role === 'employee') throw new Error('لا تملك صلاحية إدارة المستخدمين')
-  const rows = db().prepare("SELECT * FROM users ORDER BY CASE role WHEN 'super_admin' THEN 0 WHEN 'admin' THEN 1 ELSE 2 END, name").all() as Row[]
+  const rows = await q.all<Row>("SELECT * FROM users ORDER BY CASE role WHEN 'super_admin' THEN 0 WHEN 'admin' THEN 1 ELSE 2 END, name")
   return rows.map(toUser)
 }
 
@@ -129,23 +151,23 @@ function assertCanManage(actor: User, target: { role: Role }) {
   throw new Error(actor.role === 'admin' ? 'الأدمن يدير حسابات الموظفين فقط' : 'لا تملك صلاحية إدارة المستخدمين')
 }
 
-export function saveUser(actor: User, input: UserInput & { id?: number }): User {
+export async function saveUser(actor: User, input: UserInput & { id?: number }): Promise<User> {
   const role = ROLES.includes(input.role) ? input.role : 'employee'
   const username = cleanUsername(input.username)
   const name = String(input.name ?? '').trim()
   if (!name) throw new Error('الاسم مطلوب')
-  assertUsernameFree(username, input.id)
+  await assertUsernameFree(username, input.id)
 
   if (!input.id) {
     assertCanManage(actor, { role })
     // Only a super admin decides permissions; an admin's new employee gets the defaults.
     const perms = actor.role === 'super_admin' ? cleanPermissions(input.permissions) : DEFAULT_EMPLOYEE_PERMISSIONS
-    const id = db().prepare('INSERT INTO users (username, name, password_hash, role, permissions) VALUES (?, ?, ?, ?, ?)')
-      .run(username, name, hashPassword(validPassword(input.password)), role, JSON.stringify(role === 'super_admin' ? [] : perms)).lastInsertRowid
-    return getUser(Number(id))!
+    const id = await q.insert('INSERT INTO users (username, name, password_hash, role, permissions) VALUES (?, ?, ?, ?, ?)',
+      username, name, hashPassword(validPassword(input.password)), role, JSON.stringify(role === 'super_admin' ? [] : perms))
+    return (await getUser(id))!
   }
 
-  const before = getUser(input.id)
+  const before = await getUser(input.id)
   if (!before) throw new Error('المستخدم غير موجود')
   const self = before.id === actor.id
   if (!self) assertCanManage(actor, before)
@@ -160,39 +182,39 @@ export function saveUser(actor: User, input: UserInput & { id?: number }): User 
     throw new Error('منح الصلاحيات وسحبها للسوبر أدمن فقط')
   }
 
-  db().transaction(() => {
-    db().prepare('UPDATE users SET username = ?, name = ?, role = ?, permissions = ? WHERE id = ?')
-      .run(username, name, newRole, JSON.stringify(newRole === 'super_admin' ? [] : perms), before.id)
+  await tx(async () => {
+    await q.run('UPDATE users SET username = ?, name = ?, role = ?, permissions = ? WHERE id = ?',
+      username, name, newRole, JSON.stringify(newRole === 'super_admin' ? [] : perms), before.id)
     if (input.password) {
-      db().prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(hashPassword(validPassword(input.password)), before.id)
-      if (!self) endSessionsOf(before.id) // a reset password logs them out everywhere
+      await q.run('UPDATE users SET password_hash = ? WHERE id = ?', hashPassword(validPassword(input.password)), before.id)
+      if (!self) await endSessionsOf(before.id) // a reset password logs them out everywhere
     }
-  })()
-  return getUser(before.id)!
+  })
+  return (await getUser(before.id))!
 }
 
-export function setUserActive(actor: User, id: number, active: boolean): User {
-  const target = getUser(id)
+export async function setUserActive(actor: User, id: number, active: boolean): Promise<User> {
+  const target = await getUser(id)
   if (!target) throw new Error('المستخدم غير موجود')
   if (target.id === actor.id) throw new Error('لا يمكنك إيقاف حسابك')
   assertCanManage(actor, target)
-  if (!active && target.role === 'super_admin' && activeSuperAdmins() <= 1) throw new Error('يجب أن يبقى سوبر أدمن واحد فعّال على الأقل')
-  db().prepare('UPDATE users SET active = ? WHERE id = ?').run(active ? 1 : 0, id)
-  if (!active) endSessionsOf(id)
-  return getUser(id)!
+  if (!active && target.role === 'super_admin' && (await activeSuperAdmins()) <= 1) throw new Error('يجب أن يبقى سوبر أدمن واحد فعّال على الأقل')
+  await q.run('UPDATE users SET active = ? WHERE id = ?', active ? 1 : 0, id)
+  if (!active) await endSessionsOf(id)
+  return (await getUser(id))!
 }
 
-export function deleteUser(actor: User, id: number) {
+export async function deleteUser(actor: User, id: number) {
   if (actor.role !== 'super_admin') throw new Error('حذف الحسابات للسوبر أدمن فقط')
   if (id === actor.id) throw new Error('لا يمكنك حذف حسابك')
-  const target = getUser(id)
+  const target = await getUser(id)
   if (!target) return
-  if (target.role === 'super_admin' && target.active && activeSuperAdmins() <= 1) throw new Error('يجب أن يبقى سوبر أدمن واحد فعّال على الأقل')
-  db().prepare('DELETE FROM users WHERE id = ?').run(id)
+  if (target.role === 'super_admin' && target.active && (await activeSuperAdmins()) <= 1) throw new Error('يجب أن يبقى سوبر أدمن واحد فعّال على الأقل')
+  await q.run('DELETE FROM users WHERE id = ?', id)
 }
 
-export function changeOwnPassword(actor: User, current: string, next: string) {
-  const r = db().prepare('SELECT password_hash FROM users WHERE id = ?').get(actor.id) as { password_hash: string }
-  if (!checkPassword(String(current ?? ''), r.password_hash)) throw new Error('كلمة المرور الحالية غير صحيحة')
-  db().prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(hashPassword(validPassword(next)), actor.id)
+export async function changeOwnPassword(actor: User, current: string, next: string) {
+  const r = await q.one<{ password_hash: string }>('SELECT password_hash FROM users WHERE id = ?', actor.id)
+  if (!r || !checkPassword(String(current ?? ''), r.password_hash)) throw new Error('كلمة المرور الحالية غير صحيحة')
+  await q.run('UPDATE users SET password_hash = ? WHERE id = ?', hashPassword(validPassword(next)), actor.id)
 }

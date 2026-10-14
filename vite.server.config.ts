@@ -8,7 +8,7 @@ export default defineConfig({
     target: 'node20',
     emptyOutDir: true,
     rolldownOptions: {
-      external: ['better-sqlite3'],
+      external: ['postgres', '@electric-sql/pglite'],
       output: { format: 'cjs', entryFileNames: 'index.cjs' },
     },
   },
