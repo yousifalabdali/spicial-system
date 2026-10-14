@@ -20,9 +20,11 @@ export interface Product {
   qty: number
   min_qty: number
   created_at: string
+  has_image: number // 1 if a photo is stored (fetch it with getProductImage, it's not in lists)
 }
 
-export type ProductInput = Omit<Product, 'id' | 'created_at'>
+/** image: undefined = keep the current photo, null = remove it, "data:image/jpeg;base64,..." = replace. */
+export type ProductInput = Omit<Product, 'id' | 'created_at' | 'has_image'> & { image?: string | null }
 
 export interface Party {
   id: number
@@ -52,6 +54,7 @@ export interface InvoiceItem {
   price: number
   cost: number
   total: number
+  has_image?: number // the product has a photo
 }
 
 export interface Invoice {
@@ -166,6 +169,7 @@ export interface Settings {
   label_show_shop: boolean
   label_show_price: boolean
   scan_auto_print: boolean // print a label as soon as a product is scanned (outside the POS)
+  receipt_show_images: boolean // product photos next to each line on printed invoices
 }
 
 export interface DashboardData {

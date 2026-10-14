@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { Home, ShoppingCart, Package, Wallet, Truck, BarChart3, Settings, ScanBarcode, PanelRightClose, PanelRightOpen, Plus, ShieldCheck, LogOut } from 'lucide-react'
 import { ScanDialog } from '../components/Barcode'
+import { StockAlerts } from '../components/StockAlerts'
 import { useLastScan } from '../lib/scanner'
 import { useAuth } from '../lib/auth'
 import { isDesktop } from '../lib/api'
@@ -105,6 +106,7 @@ export default function Layout() {
             <div className="text-xs text-muted">{DATE.format(new Date())}</div>
           </div>
           <div className="flex items-center gap-3">
+            {(can('inventory') || can('dashboard') || can('sales') || can('suppliers')) && <StockAlerts />}
             <ScannerStatus />
             {can('sales') && <button onClick={() => navigate('/sales')}
               className="flex items-center gap-1.5 rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-white shadow-md shadow-indigo-500/25 transition hover:bg-indigo-700">

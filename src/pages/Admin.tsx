@@ -5,6 +5,7 @@ import { UserPlus, Pencil, Trash2, Power, ShieldCheck, Shield, User as UserIcon,
 import { api } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { useLoad } from '../lib/hooks'
+import { BackupPanel } from '../components/BackupPanel'
 import { Button, Field, IconButton, Input, Modal, PageTitle, Panel, Select, Table, useAction } from '../components/ui'
 import { ALL_PERMISSIONS, DEFAULT_EMPLOYEE_PERMISSIONS, PERMISSIONS, ROLE_LABEL, type Permission, type Role, type User, type UserInput } from '../../shared/auth'
 
@@ -106,6 +107,8 @@ export default function AdminPage() {
           ))}
         </Table>
       </Panel>
+
+      {isSuper && <BackupPanel />}
 
       <UserModal target={editing} me={me} onClose={() => setEditing(null)}
         onSaved={(u) => { setEditing(null); reload(); if (u.id === me.id) refresh() }} />

@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS products (
   qty INTEGER NOT NULL DEFAULT 0,
   min_qty INTEGER NOT NULL DEFAULT 0,
   deleted INTEGER NOT NULL DEFAULT 0,
+  image TEXT, -- small JPEG/PNG as a data: URL
   created_at TEXT NOT NULL DEFAULT (datetime('now','localtime'))
 );
 
@@ -164,6 +165,7 @@ export const DEFAULT_SETTINGS: Settings = {
   label_show_shop: true,
   label_show_price: true,
   scan_auto_print: false,
+  receipt_show_images: true,
 }
 
 let db: Database.Database
@@ -173,7 +175,14 @@ export function openDb(file: string) {
   db.pragma('journal_mode = WAL')
   db.pragma('foreign_keys = ON')
   db.exec(SCHEMA)
+  migrate()
   return db
+}
+
+/** Columns added after the first release (CREATE TABLE IF NOT EXISTS won't add them to old databases). */
+function migrate() {
+  const has = (table: string, col: string) => (db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[]).some((c) => c.name === col)
+  if (!has('products', 'image')) db.exec('ALTER TABLE products ADD COLUMN image TEXT')
 }
 
 export function getDb() {

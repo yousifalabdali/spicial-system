@@ -9,10 +9,13 @@ const METHODS = { cash: 'نقداً', card: 'بطاقة', transfer: 'تحويل'
 const esc = (s: unknown) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!)
 const money = (baisa: number) => (baisa / 1000).toLocaleString('en-US', { minimumFractionDigits: 3, maximumFractionDigits: 3 })
 
-export function receiptHtml(inv: InvoiceWithItems, s: Settings, paper: PaperSize) {
+/** images: product id -> data URL, only passed when the "photos on invoices" setting is on. */
+export function receiptHtml(inv: InvoiceWithItems, s: Settings, paper: PaperSize, images: Record<number, string> = {}) {
   const thermal = paper === '80mm'
+  // The photo is a data: URL we stored after validating it, so it is safe inside src="".
+  const photo = (id: number | null) => (id && images[id] ? `<img class="thumb" src="${images[id]}" alt="">` : '')
   const rows = inv.items.map((i) => `
-    <tr><td class="name">${esc(i.name)}</td><td>${i.qty}</td><td>${money(i.price)}</td><td>${money(i.total)}</td></tr>`).join('')
+    <tr><td class="name"><div class="item">${photo(i.product_id)}<span>${esc(i.name)}</span></div></td><td>${i.qty}</td><td>${money(i.price)}</td><td>${money(i.total)}</td></tr>`).join('')
   const remaining = inv.total - inv.paid
   return `<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><style>
     @page { margin: ${thermal ? '0' : '12mm'}; }
@@ -28,6 +31,8 @@ export function receiptHtml(inv: InvoiceWithItems, s: Settings, paper: PaperSize
     th, td { padding: ${thermal ? '3px 1px' : '6px 4px'}; text-align: center; }
     th { border-top: 1px dashed #000; border-bottom: 1px dashed #000; }
     td.name { text-align: right; }
+    .item { display: flex; align-items: center; gap: ${thermal ? '4px' : '8px'}; }
+    .thumb { width: ${thermal ? '10mm' : '14mm'}; height: ${thermal ? '10mm' : '14mm'}; object-fit: cover; border-radius: 2px; flex-shrink: 0; ${thermal ? 'filter: grayscale(1) contrast(1.2);' : ''}}
     ${thermal ? '' : 'th, td { border: 1px solid #999; } th { background: #eee; }'}
     .totals { margin-top: 6px; border-top: 1px dashed #000; padding-top: 4px; ${thermal ? '' : 'width: 45%; margin-right: auto;'} }
     .totals div { display: flex; justify-content: space-between; padding: 1px 0; }

@@ -6,8 +6,10 @@ import { useLoad } from '../lib/hooks'
 import { CURRENCY } from '../lib/money'
 import { useScanner } from '../lib/scanner'
 import { generateEan13, isEncodable } from '../../shared/barcode'
-import { Button, Field, IconButton, Input, Modal, Money, MoneyInput, PageTitle, Panel, Table, useAction } from '../components/ui'
+import { Button, Field, IconButton, Input, Modal, Money, MoneyInput, PageTitle, Panel, Table, useAction, useToast } from '../components/ui'
 import { BarcodeView, LabelModal } from '../components/Barcode'
+import { ImagePicker, ProductImage, forgetProductImage } from '../components/ProductImage'
+import { STOCK_CHANGED } from '../components/StockAlerts'
 import type { Product, ProductInput } from '../../shared/types'
 
 const EMPTY: ProductInput = { name: '', code: '', category: '', unit: 'حبة', cost: 0, price: 0, qty: 0, min_qty: 0 }
@@ -56,7 +58,12 @@ export default function Inventory() {
         <Table head={['الصنف', 'الباركود', 'التصنيف', 'سعر الشراء', 'سعر البيع', 'الكمية', 'حد التنبيه', 'القيمة', '']} empty="لا توجد أصناف">
           {rows.map((p) => (
             <tr key={p.id}>
-              <td className="font-semibold">{p.name}</td>
+              <td>
+                <div className="flex items-center gap-2.5">
+                  <ProductImage id={p.id} hasImage={p.has_image} className="h-9 w-9 shrink-0 rounded-lg" iconSize={15} />
+                  <span className="font-semibold">{p.name}</span>
+                </div>
+              </td>
               <td className="num text-right text-muted">{p.code || <span className="text-slate-300">—</span>}</td>
               <td>{p.category && <span className="rounded-lg bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-600">{p.category}</span>}</td>
               <td><Money v={p.cost} /></td>
@@ -87,6 +94,8 @@ export default function Inventory() {
         onSave={async (p, printLabel) => {
           const saved = await run(() => api.saveProduct(p), 'تم حفظ الصنف')
           if (!saved) return
+          forgetProductImage(saved.id)
+          window.dispatchEvent(new Event(STOCK_CHANGED))
           setEditing(null); reload()
           if (printLabel && saved.code) setLabel(saved)
         }} />
@@ -97,8 +106,10 @@ export default function Inventory() {
 
 function ProductModal({ product, onClose, onSave }: { product: Product | ProductInput | null; onClose: () => void; onSave: (p: ProductInput & { id?: number }, printLabel: boolean) => void }) {
   const [form, setForm] = useState<ProductInput>(EMPTY)
+  const toast = useToast()
   const id = product && 'id' in product ? product.id : undefined
-  useEffect(() => { if (product) setForm(product) }, [product])
+  const hasImage = product && 'has_image' in product ? product.has_image : 0
+  useEffect(() => { if (product) setForm({ ...product, image: undefined }) }, [product])
   const text = (k: keyof ProductInput) => (e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, [k]: e.target.value })
   const int = (k: keyof ProductInput) => (e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, [k]: parseInt(e.target.value) || 0 })
   const margin = form.price - form.cost
@@ -113,6 +124,10 @@ function ProductModal({ product, onClose, onSave }: { product: Product | Product
     <Modal title={id ? 'تعديل الصنف' : 'صنف جديد'} open={product !== null} onClose={onClose} width="max-w-2xl">
       <form className="grid grid-cols-2 gap-4" onSubmit={(e) => { e.preventDefault(); submit(false) }}>
         <Field label="اسم الصنف" className="col-span-2"><Input autoFocus={!form.name} required value={form.name} onChange={text('name')} /></Field>
+
+        <div className="col-span-2">
+          <ImagePicker productId={id} hasImage={hasImage} value={form.image} onChange={(image) => setForm((f) => ({ ...f, image }))} onError={(m) => toast(m, 'error')} />
+        </div>
 
         <div className="col-span-2 rounded-xl border border-dashed border-indigo-200 bg-indigo-50/40 p-3">
           <div className="flex items-end gap-2">

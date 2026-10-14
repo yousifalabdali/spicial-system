@@ -4,6 +4,8 @@ import { Search, Trash2, Plus, Minus, Save, Printer, Pencil, UserPlus, ScanBarco
 import { api } from '../lib/api'
 import { useLoad } from '../lib/hooks'
 import { useScanner } from '../lib/scanner'
+import { ProductImage } from '../components/ProductImage'
+import { STOCK_CHANGED } from '../components/StockAlerts'
 import { calcTotals, fmt, CURRENCY } from '../lib/money'
 import { CHANNEL_LABEL, INVOICE_STATUS, METHOD_LABEL } from '../lib/labels'
 import { Button, Field, IconButton, Input, Money, MoneyInput, Panel, Select, Table, Tabs, useAction, useToast } from '../components/ui'
@@ -116,6 +118,7 @@ function Pos() {
     }), 'تم حفظ الفاتورة')
     setSaving(false)
     if (!inv) return
+    window.dispatchEvent(new Event(STOCK_CHANGED))
     reset()
     if (print) run(() => api.printInvoice(inv.id))
   }
@@ -141,11 +144,14 @@ function Pos() {
         <div className="grid max-h-[calc(100vh-300px)] grid-cols-[repeat(auto-fill,minmax(170px,1fr))] gap-3 overflow-auto p-0.5 pl-1">
           {filtered.map((p) => (
             <button key={p.id} onClick={() => add(p)} disabled={p.qty <= 0}
-              className="group rounded-xl border border-line bg-white p-3 text-right transition hover:-translate-y-0.5 hover:border-indigo-300 hover:shadow-md hover:shadow-indigo-500/10 disabled:translate-y-0 disabled:opacity-40 disabled:shadow-none">
-              <div className="line-clamp-2 min-h-10 text-sm font-semibold">{p.name}</div>
-              <div className="mt-2 flex items-end justify-between">
-                <span className="num rounded-lg bg-indigo-50 px-2 py-0.5 font-bold text-accent">{fmt(p.price)}</span>
-                <span className={`text-xs ${p.qty <= p.min_qty ? 'font-semibold text-amber-600' : 'text-muted'}`}>متوفر <span className="num">{p.qty}</span></span>
+              className="group overflow-hidden rounded-xl border border-line bg-white text-right transition hover:-translate-y-0.5 hover:border-indigo-300 hover:shadow-md hover:shadow-indigo-500/10 disabled:translate-y-0 disabled:opacity-40 disabled:shadow-none">
+              {!!p.has_image && <ProductImage id={p.id} hasImage={p.has_image} className="h-24 w-full border-b border-line" />}
+              <div className="p-3">
+                <div className="line-clamp-2 min-h-10 text-sm font-semibold">{p.name}</div>
+                <div className="mt-2 flex items-end justify-between">
+                  <span className="num rounded-lg bg-indigo-50 px-2 py-0.5 font-bold text-accent">{fmt(p.price)}</span>
+                  <span className={`text-xs ${p.qty <= p.min_qty ? 'font-semibold text-amber-600' : 'text-muted'}`}>متوفر <span className="num">{p.qty}</span></span>
+                </div>
               </div>
             </button>
           ))}

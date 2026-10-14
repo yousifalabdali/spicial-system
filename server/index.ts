@@ -15,6 +15,7 @@ import { openDb } from '../electron/db'
 import { seedIfEmpty } from '../electron/db/seed'
 import { createSession, deleteSession, hasUsers, sessionUser } from '../electron/db/users'
 import { AuthError, dispatch, type Ctx } from '../electron/api'
+import { backupPath, initBackups } from '../electron/backup'
 
 const PORT = Number(process.env.PORT) || 3000
 const HOST = process.env.HOST || '0.0.0.0'
@@ -26,6 +27,7 @@ const MAX_BODY = 1_000_000
 fs.mkdirSync(DATA_DIR, { recursive: true })
 openDb(path.join(DATA_DIR, 'store.db'))
 if (process.env.SEED_DEMO === '1') seedIfEmpty()
+initBackups({ defaultDir: path.join(DATA_DIR, 'backups'), canChooseDir: false })
 
 // Until the first account exists, creating it needs this code from the server log,
 // so a stranger who opens a fresh site first cannot make themselves the super admin.
@@ -120,6 +122,15 @@ async function handleApi(req: http.IncomingMessage, res: http.ServerResponse, na
   }
 }
 
+/** A backup file, for super admins only (the session cookie is checked like an API call). */
+function downloadBackup(req: http.IncomingMessage, res: http.ServerResponse, name: string) {
+  if (sessionUser(getCookie(req, 'sid'))?.role !== 'super_admin') { res.writeHead(403); return res.end('Forbidden') }
+  const file = backupPath(name)
+  if (!file) { res.writeHead(404); return res.end('Not found') }
+  res.writeHead(200, { 'Content-Type': 'application/octet-stream', 'Content-Disposition': `attachment; filename="${name}"`, 'Cache-Control': 'no-store' })
+  fs.createReadStream(file).pipe(res)
+}
+
 function serveStatic(req: http.IncomingMessage, res: http.ServerResponse, urlPath: string) {
   if (req.method !== 'GET' && req.method !== 'HEAD') { res.writeHead(405); return res.end() }
   let rel = decodeURIComponent(urlPath)
@@ -141,6 +152,8 @@ const server = http.createServer((req, res) => {
   securityHeaders(res)
   const url = new URL(req.url ?? '/', 'http://local')
   if (url.pathname === '/healthz') return sendJson(res, 200, { ok: true })
+  const b = /^\/backups\/([^/]+)$/.exec(url.pathname)
+  if (b) return downloadBackup(req, res, decodeURIComponent(b[1]))
   const m = /^\/api\/([A-Za-z]+)$/.exec(url.pathname)
   if (m) {
     handleApi(req, res, m[1]).catch((e) => { console.error(e); if (!res.headersSent) sendJson(res, 500, { ok: false, error: 'Server error' }) })

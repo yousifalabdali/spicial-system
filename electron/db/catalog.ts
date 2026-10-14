@@ -4,18 +4,53 @@ import type { Customer, PartyInput, Product, ProductInput, Supplier } from '../.
 
 const db = () => getDb()
 
+// Lists never carry the photo itself (it can be tens of KB): has_image says whether to fetch it.
+const COLS = 'id, name, code, category, unit, cost, price, qty, min_qty, created_at, (image IS NOT NULL) AS has_image'
+const MAX_IMAGE = 400_000 // characters of data URL (~300 KB of image)
+
 export function listProducts(): Product[] {
-  return db().prepare('SELECT * FROM products WHERE deleted = 0 ORDER BY name').all() as Product[]
+  return db().prepare(`SELECT ${COLS} FROM products WHERE deleted = 0 ORDER BY name`).all() as Product[]
 }
 
 export function getProduct(id: number): Product {
-  const p = db().prepare('SELECT * FROM products WHERE id = ?').get(id) as Product | undefined
+  const p = db().prepare(`SELECT ${COLS} FROM products WHERE id = ?`).get(id) as Product | undefined
   if (!p) throw new Error('الصنف غير موجود')
   return p
 }
 
 export function getProductByCode(code: string): Product | null {
-  return (db().prepare('SELECT * FROM products WHERE deleted = 0 AND code = ?').get(code.trim()) as Product | undefined) ?? null
+  return (db().prepare(`SELECT ${COLS} FROM products WHERE deleted = 0 AND code = ?`).get(code.trim()) as Product | undefined) ?? null
+}
+
+/** Products at or under their alert level, lowest first (for the bell and notifications). */
+export function lowStockItems(): { id: number; name: string; qty: number; min_qty: number; unit: string }[] {
+  return db().prepare('SELECT id, name, qty, min_qty, unit FROM products WHERE deleted = 0 AND qty <= min_qty ORDER BY qty - min_qty, name').all() as never
+}
+
+export function getProductImage(id: number): string | null {
+  return (db().prepare('SELECT image FROM products WHERE id = ?').get(id) as { image: string | null } | undefined)?.image ?? null
+}
+
+/** Photos for a set of products (for printing an invoice). */
+export function productImages(ids: (number | null)[]): Record<number, string> {
+  const out: Record<number, string> = {}
+  const get = db().prepare('SELECT image FROM products WHERE id = ? AND image IS NOT NULL')
+  for (const id of new Set(ids)) {
+    if (!id) continue
+    const r = get.get(id) as { image: string } | undefined
+    if (r) out[id] = r.image
+  }
+  return out
+}
+
+function checkImage(image: string | null | undefined) {
+  if (image != null && (!/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(image) || image.length > MAX_IMAGE)) {
+    throw new Error('الصورة غير صالحة أو كبيرة جداً')
+  }
+}
+
+function setImage(id: number, image: string | null) {
+  db().prepare('UPDATE products SET image = ? WHERE id = ?').run(image, id)
 }
 
 function cleanProduct(p: ProductInput) {
@@ -41,6 +76,7 @@ function assertCodeFree(code: string | null, exceptId = 0) {
 export function saveProduct(input: ProductInput & { id?: number }): Product {
   const p = cleanProduct(input)
   assertCodeFree(p.code, input.id)
+  checkImage(input.image)
   if (input.id) {
     const before = db().prepare('SELECT qty FROM products WHERE id = ?').get(input.id) as { qty: number }
     db().transaction(() => {
@@ -49,14 +85,16 @@ export function saveProduct(input: ProductInput & { id?: number }): Product {
         db().prepare("INSERT INTO stock_moves (product_id, change, reason) VALUES (?, ?, 'adjust')").run(input.id, p.qty - before.qty)
       }
     })()
-    return db().prepare('SELECT * FROM products WHERE id = ?').get(input.id) as Product
+    if (input.image !== undefined) setImage(input.id, input.image)
+    return getProduct(input.id)
   }
   const id = db().transaction(() => {
     const r = db().prepare('INSERT INTO products (name, code, category, unit, cost, price, qty, min_qty) VALUES (@name, @code, @category, @unit, @cost, @price, @qty, @min_qty)').run(p)
     if (p.qty) db().prepare("INSERT INTO stock_moves (product_id, change, reason) VALUES (?, ?, 'opening')").run(r.lastInsertRowid, p.qty)
     return r.lastInsertRowid
   })()
-  return db().prepare('SELECT * FROM products WHERE id = ?').get(id) as Product
+  if (input.image) setImage(Number(id), input.image)
+  return getProduct(Number(id))
 }
 
 export function deleteProduct(id: number) {

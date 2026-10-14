@@ -4,7 +4,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { getSettings } from './db'
 import { getInvoice } from './db/sales'
-import { getProduct } from './db/catalog'
+import { getProduct, productImages } from './db/catalog'
 import { isEncodable } from '../shared/barcode'
 import { labelHtml, receiptHtml } from './printHtml'
 import type { PaperSize } from '../shared/types'
@@ -27,7 +27,8 @@ export async function printInvoice(id: number, opts: { paper?: PaperSize; pdf?: 
   const settings = getSettings()
   const paper = opts.paper ?? settings.paper
   const inv = getInvoice(id)
-  const win = await renderWindow(receiptHtml(inv, settings, paper))
+  const images = settings.receipt_show_images ? productImages(inv.items.map((i) => i.product_id)) : {}
+  const win = await renderWindow(receiptHtml(inv, settings, paper, images))
   try {
     const pageSize = await pageSizeFor(win, paper)
     if (opts.pdf) {

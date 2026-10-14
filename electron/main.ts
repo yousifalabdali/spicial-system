@@ -5,6 +5,7 @@ import { seedIfEmpty } from './db/seed'
 import { electronHandlers } from './handlers'
 import { AuthError, dispatch, handlerNames, type Ctx } from './api'
 import { activeUser } from './db/users'
+import { initBackups } from './backup'
 
 process.env.APP_ROOT = path.join(__dirname, '..')
 const DEV_URL = process.env.VITE_DEV_SERVER_URL
@@ -66,7 +67,9 @@ if (!app.requestSingleInstanceLock()) {
 
   app.whenReady().then(() => {
     if (process.platform !== 'darwin') Menu.setApplicationMenu(null)
+    app.setAppUserModelId('com.salesinventorypro.app') // needed for Windows notifications
     openDb(path.join(app.getPath('userData'), 'store.db'))
+    initBackups({ defaultDir: path.join(app.getPath('documents'), 'Sales Inventory Pro Backups'), canChooseDir: true })
     seedIfEmpty()
     registerIpc()
     createWindow()

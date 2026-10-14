@@ -70,7 +70,7 @@ export function createInvoice(input: NewInvoice): InvoiceWithItems {
 export function getInvoice(id: number): InvoiceWithItems {
   const inv = db().prepare('SELECT * FROM sales_invoices WHERE id = ?').get(id) as Invoice | undefined
   if (!inv) throw new Error('الفاتورة غير موجودة')
-  const items = db().prepare('SELECT * FROM sales_items WHERE invoice_id = ? ORDER BY id').all(id) as InvoiceItem[]
+  const items = db().prepare('SELECT si.*, (p.image IS NOT NULL) AS has_image FROM sales_items si LEFT JOIN products p ON p.id = si.product_id WHERE si.invoice_id = ? ORDER BY si.id').all(id) as InvoiceItem[]
   return { ...inv, items }
 }
 

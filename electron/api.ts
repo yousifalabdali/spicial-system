@@ -8,6 +8,7 @@ import * as purchases from './db/purchases'
 import * as treasury from './db/treasury'
 import * as reports from './db/reports'
 import * as users from './db/users'
+import { backupStatus, runBackup, saveBackupConfig } from './backup'
 import { labelHtml, receiptHtml } from './printHtml'
 import { isEncodable } from '../shared/barcode'
 import { can, canManageUsers, type Permission, type User, type UserInput } from '../shared/auth'
@@ -31,12 +32,17 @@ const dataHandlers = {
   getSettings,
   saveSettings,
   resetData,
+  backupStatus,
+  saveBackupConfig,
+  runBackup,
 
   /** Website printing: the browser prints this HTML itself. */
   invoiceHtml(id: number, paper?: PaperSize) {
     const s = getSettings()
     const p = paper ?? s.paper
-    return { html: receiptHtml(sales.getInvoice(id), s, p), paper: p }
+    const inv = sales.getInvoice(id)
+    const images = s.receipt_show_images ? catalog.productImages(inv.items.map((i) => i.product_id)) : {}
+    return { html: receiptHtml(inv, s, p, images), paper: p }
   },
   labelHtml(productId: number, copies = 1) {
     const s = getSettings()
@@ -107,12 +113,15 @@ const RULES: Record<string, Rule> = {
   changePassword: 'user', getSettings: 'user',
   listUsers: 'managers', saveUser: 'managers', setUserActive: 'managers', deleteUser: 'super',
   resetData: 'super',
+  backupStatus: 'super', saveBackupConfig: 'super', runBackup: 'super', chooseBackupDir: 'super', openBackupDir: 'super',
+  lowStockItems: ['inventory', 'dashboard', 'sales', 'suppliers'],
 
   dashboard: ['dashboard'],
   salesReport: ['reports'], saveCsv: ['reports'],
 
   listProducts: ['sales', 'inventory', 'suppliers', 'reports'],
   getProduct: ['sales', 'inventory'], getProductByCode: ['sales', 'inventory'],
+  getProductImage: ['sales', 'inventory', 'suppliers', 'reports'],
   saveProduct: ['inventory'], deleteProduct: ['inventory'],
   printLabel: ['inventory', 'sales'], labelHtml: ['inventory', 'sales'],
 

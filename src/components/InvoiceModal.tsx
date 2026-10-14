@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Printer, FileText, Ban, HandCoins } from 'lucide-react'
 import { api } from '../lib/api'
 import { useAuth } from '../lib/auth'
+import { ProductImage } from './ProductImage'
 import { fmt } from '../lib/money'
 import { CHANNEL_LABEL, INVOICE_STATUS, METHOD_LABEL } from '../lib/labels'
 import { Button, Field, Modal, Money, MoneyInput, Table, useAction } from './ui'
@@ -38,7 +39,7 @@ export function InvoiceModal({ id, onClose, onChange }: { id: number | null; onC
 
       <Table head={['الصنف', 'الكمية', 'السعر', 'المجموع']}>
         {inv.items.map((i) => (
-          <tr key={i.id}><td>{i.name}</td><td className="num text-right">{i.qty}</td><td><Money v={i.price} /></td><td><Money v={i.total} /></td></tr>
+          <tr key={i.id}><td><div className="flex items-center gap-2">{!!i.has_image && <ProductImage id={i.product_id} hasImage className="h-8 w-8 shrink-0 rounded-md" iconSize={14} />}{i.name}</div></td><td className="num text-right">{i.qty}</td><td><Money v={i.price} /></td><td><Money v={i.total} /></td></tr>
         ))}
       </Table>
 
