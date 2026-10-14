@@ -10,6 +10,7 @@ interface AuthState {
   status: Status
   user: User | null
   setupCodeRequired: boolean
+  offlineReason: string
   can: (perm: Permission) => boolean
   isManager: boolean
   refresh: () => Promise<void>
@@ -23,6 +24,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<Status>('loading')
   const [user, setUser] = useState<User | null>(null)
   const [setupCodeRequired, setSetupCodeRequired] = useState(false)
+  const [offlineReason, setOfflineReason] = useState('')
 
   const refresh = useCallback(async () => {
     try {
@@ -30,7 +32,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(s.user)
       setSetupCodeRequired(s.setupCodeRequired)
       setStatus(s.user ? 'ready' : s.needsSetup ? 'setup' : 'login')
-    } catch {
+    } catch (e) {
+      setOfflineReason((e as Error).message)
       setStatus('offline')
     }
   }, [])
@@ -54,7 +57,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const value: AuthState = {
-    status, user, setupCodeRequired, refresh, signedIn, logout,
+    status, user, setupCodeRequired, offlineReason, refresh, signedIn, logout,
     can: (perm) => canDo(user, perm),
     isManager: canManageUsers(user),
   }

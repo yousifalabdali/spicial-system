@@ -22,7 +22,7 @@ function Shell({ children }: { children: React.ReactNode }) {
 }
 
 export function LoginPage() {
-  const { status, setupCodeRequired, signedIn, refresh } = useAuth()
+  const { status, setupCodeRequired, offlineReason, signedIn, refresh } = useAuth()
   const [form, setForm] = useState({ name: '', username: '', password: '', confirm: '', code: '' })
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
@@ -35,6 +35,7 @@ export function LoginPage() {
           <WifiOff size={32} className="mx-auto text-rose-500" />
           <p className="mt-2 font-bold">تعذّر الاتصال بالخادم</p>
           <p className="mt-1 text-sm text-muted">تحقق من الإنترنت ثم أعد المحاولة.</p>
+          {offlineReason && <p className="mt-3 rounded-xl bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700">السبب: {offlineReason}</p>}
           <Button className="mt-4" onClick={refresh}>إعادة المحاولة</Button>
         </div>
       </Shell>

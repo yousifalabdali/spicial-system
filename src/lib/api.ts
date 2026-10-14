@@ -29,7 +29,13 @@ async function call(name: string, args: unknown[]): Promise<Result> {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ args }),
     })
-    return (await r.json()) as Result
+    const text = await r.text()
+    try {
+      return JSON.parse(text) as Result
+    } catch {
+      // Not our JSON: the function didn't run (wrong deploy, crashed, or the host's own error page).
+      return { ok: false, error: `الخادم لم يردّ بشكل صحيح (HTTP ${r.status}). تحقق من سجلات Vercel`, status: r.status === 401 ? 401 : undefined }
+    }
   } catch {
     return { ok: false, error: 'تعذّر الاتصال بالخادم. تحقق من الإنترنت' }
   }
