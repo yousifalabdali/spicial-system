@@ -33,11 +33,11 @@ function SupplierList() {
             <td className="font-semibold">{s.name}</td>
             <td className="num text-right">{s.phone}</td>
             <td>{s.address}</td>
-            <td><Money v={s.balance} className={s.balance > 0 ? 'text-rose-400' : 'text-muted'} /></td>
+            <td><Money v={s.balance} className={s.balance > 0 ? 'text-rose-600' : 'text-muted'} /></td>
             <td className="w-24 text-left">
               <IconButton title="تعديل" onClick={() => setEditing(s)}><Pencil size={15} /></IconButton>
               <IconButton title="حذف" onClick={async () => { if (confirm(`حذف المورد ${s.name}؟`) && (await run(() => api.deleteSupplier(s.id), 'تم الحذف'))) reload() }}>
-                <Trash2 size={15} className="text-rose-400" />
+                <Trash2 size={15} className="text-rose-600" />
               </IconButton>
             </td>
           </tr>
@@ -76,7 +76,7 @@ function Orders() {
               <td>{po.supplier_name}</td>
               <td><Money v={po.total} /></td>
               <td><Money v={po.paid} /></td>
-              <td className={`num text-right ${late ? 'font-bold text-rose-400' : ''}`}>{po.expected_date ?? '—'}{late && ' (متأخر)'}</td>
+              <td className={`num text-right ${late ? 'font-bold text-rose-600' : ''}`}>{po.expected_date ?? '—'}{late && ' (متأخر)'}</td>
               <td className={PURCHASE_STATUS[po.status].cls}>{PURCHASE_STATUS[po.status].label}</td>
             </tr>
           )
@@ -127,7 +127,7 @@ function NewOrderModal({ open, onClose, onSaved, run }: { open: boolean; onClose
               <td><Input type="number" min="1" className="num !w-24 text-right" value={l.qty} onChange={(e) => setLines(lines.map((x, j) => (j === i ? { ...x, qty: parseInt(e.target.value) || 0 } : x)))} /></td>
               <td><MoneyInput className="!w-32" value={l.cost} onChange={(cost) => setLines(lines.map((x, j) => (j === i ? { ...x, cost } : x)))} /></td>
               <td><Money v={l.qty * l.cost} /></td>
-              <td className="w-10"><IconButton title="حذف" onClick={() => setLines(lines.filter((_, j) => j !== i))}><Trash2 size={15} className="text-rose-400" /></IconButton></td>
+              <td className="w-10"><IconButton title="حذف" onClick={() => setLines(lines.filter((_, j) => j !== i))}><Trash2 size={15} className="text-rose-600" /></IconButton></td>
             </tr>
           ))}
         </Table>
@@ -169,7 +169,7 @@ function OrderModal({ id, onClose, onChange }: { id: number | null; onClose: () 
       </Table>
       <div className="mt-3 text-sm">
         الإجمالي: <Money v={po.total} className="font-bold" /> · المدفوع: <Money v={po.paid} />
-        {po.status === 'received' && remaining > 0 && <> · المتبقي: <Money v={remaining} className="text-rose-400" /></>}
+        {po.status === 'received' && remaining > 0 && <> · المتبقي: <Money v={remaining} className="text-rose-600" /></>}
       </div>
 
       {po.status === 'pending' && (

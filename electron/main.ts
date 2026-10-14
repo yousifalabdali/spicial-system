@@ -2,19 +2,32 @@ import { app, BrowserWindow, ipcMain, Menu } from 'electron'
 import path from 'node:path'
 import { openDb } from './db'
 import { seedIfEmpty } from './db/seed'
-import { handlers } from './handlers'
+import { electronHandlers } from './handlers'
+import { AuthError, dispatch, handlerNames, type Ctx } from './api'
+import { activeUser } from './db/users'
 
 process.env.APP_ROOT = path.join(__dirname, '..')
 const DEV_URL = process.env.VITE_DEV_SERVER_URL
 
+// The desktop login lives here in the main process (the page never holds a token).
+// It is re-read from the database on every call, so a withdrawn permission or a stopped account applies at once.
+let loggedInId: number | null = null
+
 function registerIpc() {
-  for (const [name, fn] of Object.entries(handlers)) {
+  for (const name of handlerNames(electronHandlers)) {
     ipcMain.handle(`api:${name}`, async (_e, ...args: unknown[]) => {
+      const ctx: Ctx = {
+        user: activeUser(loggedInId),
+        login: (u) => { loggedInId = u.id },
+        logout: () => { loggedInId = null },
+        clientKey: 'desktop',
+        setupCode: null,
+      }
       try {
-        return { ok: true, data: await (fn as (...a: unknown[]) => unknown)(...args) }
+        return { ok: true, data: await dispatch(name, args, ctx, electronHandlers) }
       } catch (err) {
-        console.error(`[api:${name}]`, err)
-        return { ok: false, error: err instanceof Error ? err.message : String(err) }
+        if (!(err instanceof AuthError)) console.error(`[api:${name}]`, err)
+        return { ok: false, error: err instanceof Error ? err.message : String(err), status: err instanceof AuthError ? err.status : undefined }
       }
     })
   }
@@ -26,7 +39,7 @@ function createWindow() {
     height: 860,
     minWidth: 1100,
     minHeight: 700,
-    backgroundColor: '#0a1631',
+    backgroundColor: '#f3f5fa',
     title: 'Sales Inventory Pro',
     autoHideMenuBar: true,
     webPreferences: {

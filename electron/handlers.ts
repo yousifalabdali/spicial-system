@@ -1,25 +1,14 @@
-// Every function the renderer can call. The renderer gets a typed proxy of this object
-// (see electron/preload.ts and src/lib/api.ts), so adding a handler here is all that's needed.
+// Functions only the desktop app has (they need Electron). Everything else lives in electron/api.ts,
+// which also decides who may call these. The renderer gets a typed proxy of all of them (src/lib/api.ts).
 import { dialog, BrowserWindow } from 'electron'
 import fs from 'node:fs'
-import { getSettings, resetData, saveSettings } from './db'
-import * as catalog from './db/catalog'
-import * as sales from './db/sales'
-import * as purchases from './db/purchases'
-import * as treasury from './db/treasury'
-import * as reports from './db/reports'
-import { listPrinters, printInvoice } from './print'
+import { listPrinters, printInvoice, printLabel } from './print'
+import { toCsv } from '../shared/csv'
+import type { CoreHandlers } from './api'
 
-export const handlers = {
-  ...catalog,
-  ...sales,
-  ...purchases,
-  ...treasury,
-  ...reports,
-  getSettings,
-  saveSettings,
-  resetData,
+export const electronHandlers = {
   printInvoice,
+  printLabel,
   listPrinters,
 
   async saveCsv(defaultName: string, rows: (string | number)[][]) {
@@ -29,13 +18,11 @@ export const handlers = {
       filters: [{ name: 'CSV (Excel)', extensions: ['csv'] }],
     })
     if (canceled || !filePath) return false
-    const cell = (v: string | number) => (/[",\n]/.test(String(v)) ? `"${String(v).replace(/"/g, '""')}"` : String(v))
-    // BOM so Excel opens Arabic text correctly.
-    fs.writeFileSync(filePath, '﻿' + rows.map((r) => r.map(cell).join(',')).join('\r\n'), 'utf8')
+    fs.writeFileSync(filePath, toCsv(rows), 'utf8')
     return true
   },
 }
 
-export type Handlers = typeof handlers
+export type Handlers = CoreHandlers & typeof electronHandlers
 
-export type ApiResult<T> = { ok: true; data: T } | { ok: false; error: string }
+export type ApiResult<T> = { ok: true; data: T } | { ok: false; error: string; status?: number }

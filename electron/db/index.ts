@@ -126,6 +126,26 @@ CREATE TABLE IF NOT EXISTS stock_moves (
   ref TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now','localtime'))
 );
+
+CREATE TABLE IF NOT EXISTS users (
+  id INTEGER PRIMARY KEY,
+  username TEXT NOT NULL UNIQUE COLLATE NOCASE,
+  name TEXT NOT NULL,
+  password_hash TEXT NOT NULL,
+  role TEXT NOT NULL CHECK (role IN ('super_admin','admin','employee')),
+  permissions TEXT NOT NULL DEFAULT '[]',
+  active INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+  last_login TEXT
+);
+
+-- Website logins. Only a hash of the cookie token is stored.
+CREATE TABLE IF NOT EXISTS sessions (
+  token_hash TEXT PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  expires_at TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+);
 `
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -139,6 +159,11 @@ export const DEFAULT_SETTINGS: Settings = {
   printer_name: '',
   silent_print: false,
   receipt_footer: 'شكراً لزيارتكم',
+  label_size: '50x25',
+  label_printer: '',
+  label_show_shop: true,
+  label_show_price: true,
+  scan_auto_print: false,
 }
 
 let db: Database.Database

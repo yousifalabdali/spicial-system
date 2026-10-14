@@ -8,6 +8,16 @@ export function listProducts(): Product[] {
   return db().prepare('SELECT * FROM products WHERE deleted = 0 ORDER BY name').all() as Product[]
 }
 
+export function getProduct(id: number): Product {
+  const p = db().prepare('SELECT * FROM products WHERE id = ?').get(id) as Product | undefined
+  if (!p) throw new Error('الصنف غير موجود')
+  return p
+}
+
+export function getProductByCode(code: string): Product | null {
+  return (db().prepare('SELECT * FROM products WHERE deleted = 0 AND code = ?').get(code.trim()) as Product | undefined) ?? null
+}
+
 function cleanProduct(p: ProductInput) {
   if (!p.name?.trim()) throw new Error('اسم الصنف مطلوب')
   return {

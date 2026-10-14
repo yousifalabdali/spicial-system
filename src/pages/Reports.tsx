@@ -55,9 +55,9 @@ export default function Reports() {
           <Summary label="صافي المبيعات (قبل الضريبة)" value={<Money v={r.subtotal - r.discount} />} />
           <Summary label="الضريبة المحصلة" value={<Money v={r.vat} />} />
           <Summary label="إجمالي المبيعات" value={<Money v={r.total} />} />
-          <Summary label="إجمالي الربح" value={<Money v={r.profit} className="text-emerald-400" />} />
-          <Summary label="المصروفات" value={<Money v={r.expenses} className="text-rose-400" />} />
-          <Summary label="صافي الربح" value={<Money v={r.profit - r.expenses} className={r.profit - r.expenses >= 0 ? 'text-emerald-400' : 'text-rose-400'} />} />
+          <Summary label="إجمالي الربح" value={<Money v={r.profit} className="text-emerald-600" />} />
+          <Summary label="المصروفات" value={<Money v={r.expenses} className="text-rose-600" />} />
+          <Summary label="صافي الربح" value={<Money v={r.profit - r.expenses} className={r.profit - r.expenses >= 0 ? 'text-emerald-600' : 'text-rose-600'} />} />
           <Summary label="الخصومات" value={<Money v={r.discount} />} />
         </div>
 
@@ -65,13 +65,13 @@ export default function Reports() {
           <div className="h-64" dir="ltr">
             <ResponsiveContainer>
               <BarChart data={r.daily} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
-                <CartesianGrid stroke="#22407a" strokeOpacity={0.6} vertical={false} />
-                <XAxis dataKey="day" stroke="#8fa3c7" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(d: string) => d.slice(5)} />
-                <YAxis stroke="#8fa3c7" fontSize={12} tickLine={false} axisLine={false} tickFormatter={fmtShort} />
-                <Tooltip cursor={{ fill: '#132a5a' }} contentStyle={{ background: '#132a5a', border: '1px solid #22407a', borderRadius: 8, direction: 'rtl' }}
+                <CartesianGrid stroke="#e4e8f1" vertical={false} />
+                <XAxis dataKey="day" stroke="#64748b" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(d: string) => d.slice(5)} />
+                <YAxis stroke="#64748b" fontSize={12} tickLine={false} axisLine={false} tickFormatter={fmtShort} />
+                <Tooltip cursor={{ fill: '#eef0ff' }} contentStyle={{ background: '#fff', border: '1px solid #e4e8f1', borderRadius: 12, direction: 'rtl', boxShadow: '0 8px 24px rgb(15 23 42 / 0.08)' }}
                   formatter={(v, name) => [`${fmt(Number(v))} ${CURRENCY}`, name === 'total' ? 'المبيعات' : 'الربح']} />
-                <Bar dataKey="total" fill="#3b82f6" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="profit" fill="#2fa39a" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="total" fill="#6366f1" radius={[6, 6, 0, 0]} />
+                <Bar dataKey="profit" fill="#14b8a6" radius={[6, 6, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -96,7 +96,7 @@ export default function Reports() {
           {products.data?.map((p) => (
             <tr key={p.id}>
               <td>{p.name}</td><td>{p.category}</td>
-              <td className={`num text-right ${p.qty <= p.min_qty ? 'text-amber-400' : ''}`}>{p.qty}</td>
+              <td className={`num text-right ${p.qty <= p.min_qty ? 'text-amber-600' : ''}`}>{p.qty}</td>
               <td><Money v={p.cost} /></td><td><Money v={p.price} /></td><td><Money v={p.qty * p.cost} /></td>
             </tr>
           ))}

@@ -1,22 +1,72 @@
 import { useEffect, useState } from 'react'
-import { Save, Trash2 } from 'lucide-react'
-import { api } from '../lib/api'
+import { Save, Trash2, ScanBarcode, CheckCircle2, Usb } from 'lucide-react'
+import { api, isDesktop } from '../lib/api'
+import { useAuth } from '../lib/auth'
 import { useLoad } from '../lib/hooks'
+import { useLastScan, useScanner } from '../lib/scanner'
 import { Button, Field, Input, PageTitle, Panel, Select, useAction } from '../components/ui'
+import { LabelPreview } from '../components/Barcode'
 import type { Settings } from '../../shared/types'
+
+function Check({ label, checked, onChange, className = '' }: { label: string; checked: boolean; onChange: (v: boolean) => void; className?: string }) {
+  return (
+    <label className={`flex cursor-pointer items-center gap-2 text-sm font-semibold ${className}`}>
+      <input type="checkbox" className="h-4 w-4 accent-indigo-600" checked={checked} onChange={(e) => onChange(e.target.checked)} />
+      {label}
+    </label>
+  )
+}
+
+/** Connection steps, plus a live check that the scanner is reaching the app. */
+function ScannerTest() {
+  const last = useLastScan()
+  useScanner(() => {}) // on this page a scan is only a test: don't open the label dialog
+  return (
+    <div className="grid grid-cols-2 gap-5">
+      <ol className="space-y-2.5 text-sm">
+        {[
+          'وصّل القارئ بمنفذ USB (أو اقرنه عبر Bluetooth). لا يحتاج أي تعريفات.',
+          'تأكد أن القارئ مضبوط على إرسال Enter بعد الكود (الإعداد الافتراضي لأغلب القارئات).',
+          'امسح أي باركود: في شاشة البيع يُضاف للفاتورة، وفي باقي الشاشات تظهر نافذة طباعة الملصق.',
+        ].map((t, i) => (
+          <li key={i} className="flex gap-2.5">
+            <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-indigo-50 text-xs font-bold text-accent">{i + 1}</span>
+            <span className="pt-0.5">{t}</span>
+          </li>
+        ))}
+      </ol>
+      <div className={`flex flex-col items-center justify-center rounded-xl border-2 border-dashed p-4 text-center transition-colors ${last ? 'border-emerald-300 bg-emerald-50' : 'border-line bg-slate-50'}`}>
+        {last ? (
+          <>
+            <CheckCircle2 size={30} className="text-emerald-600" />
+            <div className="mt-1 font-bold text-emerald-700">القارئ يعمل</div>
+            <div className="num mt-1 font-mono text-sm">{last.code}</div>
+          </>
+        ) : (
+          <>
+            <div className="flex gap-1 text-slate-400"><Usb size={26} /><ScanBarcode size={26} /></div>
+            <div className="mt-1 font-semibold">اختبر القارئ</div>
+            <div className="text-xs text-muted">امسح أي باركود الآن وسيظهر هنا</div>
+          </>
+        )}
+      </div>
+    </div>
+  )
+}
 
 export default function SettingsPage() {
   const { data } = useLoad(() => api.getSettings())
   const printers = useLoad(() => api.listPrinters())
   const [form, setForm] = useState<Settings | null>(null)
   const run = useAction()
+  const { user } = useAuth()
   useEffect(() => { if (data) setForm(data) }, [data])
   if (!form) return null
 
   const text = (k: keyof Settings) => (e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, [k]: e.target.value })
 
   return (
-    <div className="mx-auto max-w-3xl">
+    <div className="mx-auto max-w-4xl">
       <PageTitle actions={<Button onClick={() => run(() => api.saveSettings(form), 'تم حفظ الإعدادات')}><Save size={16} /> حفظ الإعدادات</Button>}>الإعدادات</PageTitle>
 
       <Panel title="بيانات المحل (تظهر في الفاتورة)" className="mb-4">
@@ -31,7 +81,7 @@ export default function SettingsPage() {
       <Panel title="الضريبة" className="mb-4">
         <div className="grid grid-cols-3 items-end gap-3">
           <label className="flex items-center gap-2 pb-2 text-sm font-semibold">
-            <input type="checkbox" className="h-4 w-4 accent-blue-500" checked={form.vat_enabled} onChange={(e) => setForm({ ...form, vat_enabled: e.target.checked })} />
+            <input type="checkbox" className="h-4 w-4 accent-indigo-600" checked={form.vat_enabled} onChange={(e) => setForm({ ...form, vat_enabled: e.target.checked })} />
             تفعيل ضريبة القيمة المضافة
           </label>
           <Field label="نسبة الضريبة %">
@@ -51,20 +101,57 @@ export default function SettingsPage() {
               <option value="A4">ورق A4</option>
             </Select>
           </Field>
-          <Field label="الطابعة">
+          {isDesktop && <Field label="الطابعة">
             <Select value={form.printer_name} onChange={(e) => setForm({ ...form, printer_name: e.target.value })}>
               <option value="">الطابعة الافتراضية للنظام</option>
               {printers.data?.map((p) => <option key={p.name} value={p.name}>{p.displayName}</option>)}
             </Select>
-          </Field>
-          <label className="col-span-2 flex items-center gap-2 text-sm font-semibold">
-            <input type="checkbox" className="h-4 w-4 accent-blue-500" checked={form.silent_print} onChange={(e) => setForm({ ...form, silent_print: e.target.checked })} />
-            طباعة مباشرة بدون نافذة الطباعة
-          </label>
+          </Field>}
+          {isDesktop ? (
+            <label className="col-span-2 flex items-center gap-2 text-sm font-semibold">
+              <input type="checkbox" className="h-4 w-4 accent-indigo-600" checked={form.silent_print} onChange={(e) => setForm({ ...form, silent_print: e.target.checked })} />
+              طباعة مباشرة بدون نافذة الطباعة
+            </label>
+          ) : (
+            <p className="col-span-2 text-xs text-muted">في الموقع تُختار الطابعة من نافذة الطباعة في المتصفح.</p>
+          )}
         </div>
       </Panel>
 
-      <Panel title="البيانات">
+      <Panel title="قارئ الباركود" className="mb-4">
+        <ScannerTest />
+      </Panel>
+
+      <Panel title="طباعة ملصقات الباركود" className="mb-4">
+        <div className="grid grid-cols-[1fr_auto] gap-5">
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="مقاس الملصق (مم)">
+              <Select value={form.label_size} onChange={(e) => setForm({ ...form, label_size: e.target.value as Settings['label_size'] })}>
+                <option value="50x25">50 × 25 (الأكثر شيوعاً)</option>
+                <option value="40x30">40 × 30</option>
+                <option value="38x25">38 × 25</option>
+                <option value="58x40">58 × 40</option>
+              </Select>
+            </Field>
+            {isDesktop && <Field label="طابعة الملصقات">
+              <Select value={form.label_printer} onChange={(e) => setForm({ ...form, label_printer: e.target.value })}>
+                <option value="">الطابعة الافتراضية للنظام</option>
+                {printers.data?.map((p) => <option key={p.name} value={p.name}>{p.displayName}</option>)}
+              </Select>
+            </Field>}
+            <Check label="إظهار اسم المحل على الملصق" checked={form.label_show_shop} onChange={(v) => setForm({ ...form, label_show_shop: v })} />
+            <Check label="إظهار السعر على الملصق" checked={form.label_show_price} onChange={(v) => setForm({ ...form, label_show_price: v })} />
+            <Check className="col-span-2" label="طباعة الملصق تلقائياً بمجرد مسح المنتج (خارج شاشة البيع)" checked={form.scan_auto_print} onChange={(v) => setForm({ ...form, scan_auto_print: v })} />
+          </div>
+          <div className="w-72 rounded-xl bg-slate-100 p-4">
+            <div className="mb-2 text-xs font-semibold text-muted">معاينة</div>
+            <LabelPreview settings={form} product={{ id: 0, name: 'مثال: عصير برتقال 1 لتر', code: '6281234567890', category: null, unit: 'حبة', cost: 0, price: 1250, qty: 0, min_qty: 0, created_at: '' }} />
+          </div>
+        </div>
+        {isDesktop && <p className="mt-3 text-xs text-muted">لطابعة ملصقات (مثل Xprinter أو Zebra) اخترها هنا، وفعّل «طباعة مباشرة بدون نافذة الطباعة» في قسم الطباعة لتطبع فوراً.</p>}
+      </Panel>
+
+      {user?.role === 'super_admin' && <Panel title="البيانات">
         <div className="flex items-center justify-between gap-4">
           <p className="text-sm text-muted">مسح كل الأصناف والفواتير والعملاء والموردين وحركات الخزينة (ومنها البيانات التجريبية) للبدء من جديد. الإعدادات لا تُمسح.</p>
           <Button variant="danger" className="shrink-0" onClick={async () => {
@@ -73,7 +160,7 @@ export default function SettingsPage() {
             if (await run(() => api.resetData(), 'تم مسح البيانات')) location.hash = '#/'
           }}><Trash2 size={16} /> مسح جميع البيانات</Button>
         </div>
-      </Panel>
+      </Panel>}
     </div>
   )
 }

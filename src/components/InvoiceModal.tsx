@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react'
 import { Printer, FileText, Ban, HandCoins } from 'lucide-react'
 import { api } from '../lib/api'
+import { useAuth } from '../lib/auth'
 import { fmt } from '../lib/money'
 import { CHANNEL_LABEL, INVOICE_STATUS, METHOD_LABEL } from '../lib/labels'
 import { Button, Field, Modal, Money, MoneyInput, Table, useAction } from './ui'
 import type { InvoiceWithItems } from '../../shared/types'
 
 export function InvoiceModal({ id, onClose, onChange }: { id: number | null; onClose: () => void; onChange?: () => void }) {
+  const canCancel = useAuth().can('invoices_cancel')
   const [inv, setInv] = useState<InvoiceWithItems | null>(null)
   const [payAmount, setPayAmount] = useState(0)
   const run = useAction()
@@ -46,7 +48,7 @@ export function InvoiceModal({ id, onClose, onChange }: { id: number | null; onC
         {inv.vat > 0 && <Row label={`الضريبة ${inv.vat_rate}%`} v={inv.vat} />}
         <Row label="الإجمالي" v={inv.total} bold />
         <Row label="المدفوع" v={inv.paid} />
-        {remaining > 0 && inv.status !== 'cancelled' && <Row label="المتبقي" v={remaining} className="text-rose-400" />}
+        {remaining > 0 && inv.status !== 'cancelled' && <Row label="المتبقي" v={remaining} className="text-rose-600" />}
       </div>
 
       {remaining > 0 && inv.status !== 'cancelled' && (
@@ -66,7 +68,7 @@ export function InvoiceModal({ id, onClose, onChange }: { id: number | null; onC
           <Button variant="ghost" onClick={() => run(() => api.printInvoice(inv.id, { paper: '80mm', pdf: true }))}><FileText size={16} /> PDF حراري</Button>
           <Button variant="ghost" onClick={() => run(() => api.printInvoice(inv.id, { paper: 'A4', pdf: true }))}><FileText size={16} /> PDF A4</Button>
         </div>
-        {inv.status !== 'cancelled' && (
+        {inv.status !== 'cancelled' && canCancel && (
           <Button variant="danger" onClick={async () => {
             if (!confirm(`إلغاء الفاتورة ${inv.number}؟ سيتم إرجاع الكميات للمخزون واسترجاع المبلغ المدفوع.`)) return
             update(await run(() => api.cancelInvoice(inv.id), 'تم إلغاء الفاتورة'))

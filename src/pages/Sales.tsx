@@ -1,11 +1,12 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Search, Trash2, Plus, Minus, Save, Printer, Pencil, UserPlus } from 'lucide-react'
+import { Search, Trash2, Plus, Minus, Save, Printer, Pencil, UserPlus, ScanBarcode, ShoppingBag } from 'lucide-react'
 import { api } from '../lib/api'
 import { useLoad } from '../lib/hooks'
+import { useScanner } from '../lib/scanner'
 import { calcTotals, fmt, CURRENCY } from '../lib/money'
 import { CHANNEL_LABEL, INVOICE_STATUS, METHOD_LABEL } from '../lib/labels'
-import { Button, Field, IconButton, Input, Money, MoneyInput, Panel, Select, Table, Tabs, useAction } from '../components/ui'
+import { Button, Field, IconButton, Input, Money, MoneyInput, Panel, Select, Table, Tabs, useAction, useToast } from '../components/ui'
 import { InvoiceModal } from '../components/InvoiceModal'
 import { PartyModal } from '../components/PartyModal'
 import type { Channel, Customer, PaymentMethod, Product } from '../../shared/types'
@@ -38,9 +39,12 @@ function Pos() {
   const customers = useLoad(() => api.listCustomers())
   const settings = useLoad(() => api.getSettings())
   const run = useAction()
+  const toast = useToast()
+  const [params, setParams] = useSearchParams()
 
   const [search, setSearch] = useState('')
   const [cart, setCart] = useState<CartLine[]>([])
+  const [flash, setFlash] = useState<{ id: number; n: number } | null>(null)
   const [customerId, setCustomerId] = useState<number | null>(null)
   const [channel, setChannel] = useState<Channel>('retail')
   const [method, setMethod] = useState<PaymentMethod>('cash')
@@ -60,12 +64,31 @@ function Pos() {
   const add = (p: Product) => {
     setCart((c) => {
       const line = c.find((l) => l.product.id === p.id)
-      if (line) return c.map((l) => (l === line ? { ...l, qty: l.qty + 1 } : l))
+      if (line) return c.map((l) => (l === line ? { ...l, qty: Math.min(l.qty + 1, p.qty) } : l))
       return [...c, { product: p, qty: 1, price: p.price }]
     })
+    setFlash((f) => ({ id: p.id, n: (f?.n ?? 0) + 1 }))
     setSearch('')
     searchRef.current?.focus()
   }
+
+  // A scanned barcode goes straight into the cart.
+  const addByCode = (code: string) => {
+    const p = products.data?.find((x) => x.code === code)
+    if (!p) return toast(`الباركود ${code} غير مسجّل. أضفه من شاشة المخزون`, 'error')
+    if (p.qty <= 0) return toast(`«${p.name}» نفد من المخزون`, 'error')
+    add(p)
+  }
+  useScanner(addByCode)
+
+  // Arriving from the scan dialog's "sell this item" button.
+  const pendingAdd = params.get('add')
+  useEffect(() => {
+    if (!pendingAdd || !products.data) return
+    addByCode(pendingAdd)
+    setParams({ tab: 'pos' }, { replace: true })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingAdd, products.data])
 
   const setLine = (id: number, patch: Partial<CartLine>) => setCart((c) => c.map((l) => (l.product.id === id ? { ...l, ...patch } : l)))
 
@@ -100,6 +123,10 @@ function Pos() {
   return (
     <div className="grid grid-cols-[1fr_440px] gap-4">
       <Panel title="الأصناف">
+        <div className="mb-3 flex items-center gap-2 rounded-xl bg-indigo-50 px-3 py-2 text-sm text-indigo-700">
+          <ScanBarcode size={18} className="shrink-0" />
+          امسح باركود المنتج بالقارئ ليُضاف للفاتورة مباشرة، أو اضغط على الصنف
+        </div>
         <div className="relative mb-3">
           <Search size={18} className="absolute top-2.5 right-3 text-muted" />
           <Input ref={searchRef} autoFocus className="pr-10" placeholder="ابحث بالاسم أو الكود (Enter لإضافة أول نتيجة)" value={search}
@@ -111,14 +138,14 @@ function Pos() {
               if (pick) add(pick)
             }} />
         </div>
-        <div className="grid max-h-[calc(100vh-230px)] grid-cols-[repeat(auto-fill,minmax(170px,1fr))] gap-2.5 overflow-auto pl-1">
+        <div className="grid max-h-[calc(100vh-300px)] grid-cols-[repeat(auto-fill,minmax(170px,1fr))] gap-3 overflow-auto p-0.5 pl-1">
           {filtered.map((p) => (
             <button key={p.id} onClick={() => add(p)} disabled={p.qty <= 0}
-              className="rounded-lg border border-line bg-panel-2/60 p-3 text-right transition hover:border-accent hover:bg-panel-2 disabled:opacity-40">
+              className="group rounded-xl border border-line bg-white p-3 text-right transition hover:-translate-y-0.5 hover:border-indigo-300 hover:shadow-md hover:shadow-indigo-500/10 disabled:translate-y-0 disabled:opacity-40 disabled:shadow-none">
               <div className="line-clamp-2 min-h-10 text-sm font-semibold">{p.name}</div>
               <div className="mt-2 flex items-end justify-between">
-                <span className="num font-bold text-[#7fb2ff]">{fmt(p.price)}</span>
-                <span className={`text-xs ${p.qty <= p.min_qty ? 'text-amber-400' : 'text-muted'}`}>متوفر <span className="num">{p.qty}</span></span>
+                <span className="num rounded-lg bg-indigo-50 px-2 py-0.5 font-bold text-accent">{fmt(p.price)}</span>
+                <span className={`text-xs ${p.qty <= p.min_qty ? 'font-semibold text-amber-600' : 'text-muted'}`}>متوفر <span className="num">{p.qty}</span></span>
               </div>
             </button>
           ))}
@@ -144,10 +171,16 @@ function Pos() {
           </Field>
         </div>
 
-        <div className="max-h-[calc(100vh-560px)] min-h-32 overflow-auto rounded-lg border border-line/60">
-          {cart.length === 0 && <div className="py-10 text-center text-sm text-muted">اختر الأصناف لإضافتها</div>}
+        <div className="max-h-[calc(100vh-560px)] min-h-32 overflow-auto rounded-xl border border-line">
+          {cart.length === 0 && (
+            <div className="flex flex-col items-center gap-2 py-8 text-sm text-muted">
+              <ShoppingBag size={30} className="text-slate-300" />
+              امسح منتجاً أو اختر من الأصناف
+            </div>
+          )}
           {cart.map((l) => (
-            <div key={l.product.id} className="flex items-center gap-2 border-b border-line/40 px-2.5 py-2 text-sm last:border-0">
+            <div key={flash?.id === l.product.id ? `${l.product.id}-${flash.n}` : l.product.id}
+              className={`flex items-center gap-2 border-b border-line px-2.5 py-2 text-sm last:border-0 ${flash?.id === l.product.id ? 'scan-flash bg-emerald-50/60' : ''}`}>
               <div className="min-w-0 flex-1">
                 <div className="truncate font-semibold">{l.product.name}</div>
                 <div className="mt-1 flex items-center gap-1 text-xs text-muted">
@@ -157,12 +190,12 @@ function Pos() {
               </div>
               <div className="flex items-center gap-1">
                 <IconButton title="زيادة" onClick={() => setLine(l.product.id, { qty: Math.min(l.qty + 1, l.product.qty) })}><Plus size={15} /></IconButton>
-                <input className="num w-12 rounded border border-line bg-page/60 py-0.5 text-center" value={l.qty}
+                <input className="num w-12 rounded-lg border border-line bg-white py-0.5 text-center outline-none focus:border-accent" value={l.qty}
                   onChange={(e) => setLine(l.product.id, { qty: Math.max(0, parseInt(e.target.value) || 0) })} />
                 <IconButton title="إنقاص" onClick={() => setLine(l.product.id, { qty: Math.max(1, l.qty - 1) })}><Minus size={15} /></IconButton>
               </div>
               <span className="num w-20 text-left font-semibold">{fmt(l.qty * l.price)}</span>
-              <IconButton title="حذف" onClick={() => setCart((c) => c.filter((x) => x !== l))}><Trash2 size={15} className="text-rose-400" /></IconButton>
+              <IconButton title="حذف" onClick={() => setCart((c) => c.filter((x) => x !== l))}><Trash2 size={15} className="text-rose-600" /></IconButton>
             </div>
           ))}
         </div>
@@ -183,12 +216,12 @@ function Pos() {
           )}
         </div>
 
-        <div className="mt-3 space-y-1 rounded-lg bg-page/50 p-3 text-sm">
-          <div className="flex justify-between"><span>المجموع</span><Money v={subtotal} /></div>
-          {totals.discount > 0 && <div className="flex justify-between"><span>الخصم</span><Money v={-totals.discount} /></div>}
-          {vatRate > 0 && <div className="flex justify-between"><span>ضريبة القيمة المضافة {vatRate}%</span><Money v={totals.vat} /></div>}
-          <div className="flex justify-between border-t border-line pt-2 text-xl font-bold">
-            <span>الإجمالي</span><span><Money v={totals.total} className="text-[#7fb2ff]" /> <span className="text-sm">{CURRENCY}</span></span>
+        <div className="mt-3 space-y-1 rounded-xl bg-slate-50 p-3 text-sm">
+          <div className="flex justify-between text-muted"><span>المجموع</span><Money v={subtotal} className="text-ink" /></div>
+          {totals.discount > 0 && <div className="flex justify-between text-muted"><span>الخصم</span><Money v={-totals.discount} className="text-ink" /></div>}
+          {vatRate > 0 && <div className="flex justify-between text-muted"><span>ضريبة القيمة المضافة {vatRate}%</span><Money v={totals.vat} className="text-ink" /></div>}
+          <div className="mt-1 flex items-center justify-between rounded-xl bg-gradient-to-l from-indigo-600 to-violet-600 px-4 py-3 text-white">
+            <span className="font-semibold">الإجمالي</span><span className="text-2xl font-bold"><Money v={totals.total} /> <span className="text-sm font-semibold opacity-80">{CURRENCY}</span></span>
           </div>
         </div>
 
@@ -267,11 +300,11 @@ function Customers() {
             <td className="font-semibold">{c.name}</td>
             <td className="num text-right">{c.phone}</td>
             <td>{c.address}</td>
-            <td><Money v={c.balance} className={c.balance > 0 ? 'text-rose-400' : 'text-muted'} /></td>
+            <td><Money v={c.balance} className={c.balance > 0 ? 'text-rose-600' : 'text-muted'} /></td>
             <td className="w-24 text-left">
               <IconButton title="تعديل" onClick={() => setEditing(c)}><Pencil size={15} /></IconButton>
               <IconButton title="حذف" onClick={async () => { if (confirm(`حذف العميل ${c.name}؟`) && (await run(() => api.deleteCustomer(c.id), 'تم الحذف'))) reload() }}>
-                <Trash2 size={15} className="text-rose-400" />
+                <Trash2 size={15} className="text-rose-600" />
               </IconButton>
             </td>
           </tr>

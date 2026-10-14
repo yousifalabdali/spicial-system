@@ -36,9 +36,9 @@ function Moves() {
   return (
     <>
       <div className="mb-4 grid grid-cols-3 gap-4">
-        <StatCard label="رصيد الخزينة الحالي" value={<Money v={balance.data ?? 0} />} suffix={CURRENCY} icon={<Wallet size={34} className="fill-blue-500 text-blue-200" />} />
-        <StatCard label="المقبوضات (الفترة)" value={<Money v={totalIn} />} suffix={CURRENCY} icon={<ArrowDownCircle size={34} className="text-emerald-400" />} />
-        <StatCard label="المدفوعات (الفترة)" value={<Money v={totalOut} />} suffix={CURRENCY} icon={<ArrowUpCircle size={34} className="text-rose-400" />} />
+        <StatCard label="رصيد الخزينة الحالي" value={<Money v={balance.data ?? 0} />} suffix={CURRENCY} tone="indigo" icon={<Wallet size={24} />} />
+        <StatCard label="المقبوضات (الفترة)" value={<Money v={totalIn} />} suffix={CURRENCY} tone="emerald" icon={<ArrowDownCircle size={24} />} />
+        <StatCard label="المدفوعات (الفترة)" value={<Money v={totalOut} />} suffix={CURRENCY} tone="rose" icon={<ArrowUpCircle size={24} />} />
       </div>
       <Panel title="الحركات" actions={<>
         <Button variant="success" onClick={() => setAdding('in')}><ArrowDownCircle size={16} /> قبض</Button>
@@ -52,14 +52,14 @@ function Moves() {
           {moves.data?.map((m) => (
             <tr key={m.id}>
               <td className="num text-right text-muted">{m.created_at}</td>
-              <td className={m.type === 'in' ? 'text-emerald-400' : 'text-rose-400'}>{m.type === 'in' ? 'قبض' : 'صرف'}</td>
+              <td className={m.type === 'in' ? 'text-emerald-600' : 'text-rose-600'}>{m.type === 'in' ? 'قبض' : 'صرف'}</td>
               <td>{categoryLabel(m.category)}</td>
               <td>{m.description}</td>
-              <td><Money v={m.type === 'in' ? m.amount : -m.amount} className={m.type === 'in' ? 'text-emerald-400' : 'text-rose-400'} /></td>
+              <td><Money v={m.type === 'in' ? m.amount : -m.amount} className={m.type === 'in' ? 'text-emerald-600' : 'text-rose-600'} /></td>
               <td className="w-12 text-left">
                 {!m.ref && (
                   <IconButton title="حذف" onClick={async () => { if (confirm('حذف هذه الحركة؟') && (await run(() => api.deleteTreasury(m.id), 'تم الحذف'))) reload() }}>
-                    <Trash2 size={15} className="text-rose-400" />
+                    <Trash2 size={15} className="text-rose-600" />
                   </IconButton>
                 )}
               </td>
@@ -114,18 +114,18 @@ function Cheques() {
       <Table head={['النوع', 'رقم الشيك', 'البنك', 'الجهة', 'المبلغ', 'تاريخ الاستحقاق', 'الحالة', '']} empty="لا توجد شيكات">
         {data?.map((c) => (
           <tr key={c.id}>
-            <td className={c.direction === 'in' ? 'text-emerald-400' : 'text-rose-400'}>{c.direction === 'in' ? 'وارد' : 'صادر'}</td>
+            <td className={c.direction === 'in' ? 'text-emerald-600' : 'text-rose-600'}>{c.direction === 'in' ? 'وارد' : 'صادر'}</td>
             <td className="num text-right">{c.number}</td>
             <td>{c.bank}</td>
             <td>{c.party}</td>
             <td><Money v={c.amount} /></td>
-            <td className={`num text-right ${c.status === 'pending' && c.due_date <= soon ? 'font-bold text-amber-400' : ''}`}>{c.due_date}</td>
+            <td className={`num text-right ${c.status === 'pending' && c.due_date <= soon ? 'font-bold text-amber-600' : ''}`}>{c.due_date}</td>
             <td className={CHEQUE_STATUS[c.status].cls}>{CHEQUE_STATUS[c.status].label}</td>
             <td className="w-32 text-left">
               {c.status === 'pending' && <>
-                <IconButton title="تم الصرف" onClick={() => setStatus(c.id, 'cleared')}><Check size={16} className="text-emerald-400" /></IconButton>
-                <IconButton title="مرتجع" onClick={() => setStatus(c.id, 'bounced')}><X size={16} className="text-amber-400" /></IconButton>
-                <IconButton title="حذف" onClick={async () => { if (confirm('حذف الشيك؟') && (await run(() => api.deleteCheque(c.id)))) reload() }}><Trash2 size={15} className="text-rose-400" /></IconButton>
+                <IconButton title="تم الصرف" onClick={() => setStatus(c.id, 'cleared')}><Check size={16} className="text-emerald-600" /></IconButton>
+                <IconButton title="مرتجع" onClick={() => setStatus(c.id, 'bounced')}><X size={16} className="text-amber-600" /></IconButton>
+                <IconButton title="حذف" onClick={async () => { if (confirm('حذف الشيك؟') && (await run(() => api.deleteCheque(c.id)))) reload() }}><Trash2 size={15} className="text-rose-600" /></IconButton>
               </>}
             </td>
           </tr>

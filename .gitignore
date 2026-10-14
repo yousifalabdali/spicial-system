@@ -6,3 +6,5 @@ release/
 license-server/node_modules/
 license-server/private.pem
 license-server/licenses.json
+dist-server/
+data/

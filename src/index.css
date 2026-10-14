@@ -2,14 +2,15 @@
 
 @theme {
   --font-sans: "Cairo", Tahoma, sans-serif;
-  --color-page: #0a1631;
-  --color-panel: #0e2149;
-  --color-panel-2: #132a5a;
-  --color-line: #22407a;
-  --color-head: #1a3366;
-  --color-ink: #e6edf9;
-  --color-muted: #8fa3c7;
-  --color-accent: #3b82f6;
+  --color-page: #f3f5fa;
+  --color-panel: #ffffff;
+  --color-panel-2: #f7f8fc;
+  --color-line: #e4e8f1;
+  --color-head: #f6f7fb;
+  --color-ink: #0f172a;
+  --color-muted: #64748b;
+  --color-accent: #4f46e5;
+  --color-accent-soft: #eef0ff;
 }
 
 html, body, #root { height: 100%; }
@@ -27,18 +28,25 @@ input, textarea, select { user-select: text; }
 .num { direction: ltr; unicode-bidi: isolate; font-variant-numeric: tabular-nums; }
 
 ::-webkit-scrollbar { width: 10px; height: 10px; }
-::-webkit-scrollbar-thumb { background: #22407a; border-radius: 8px; border: 2px solid var(--color-page); }
+::-webkit-scrollbar-thumb { background: #cfd5e3; border-radius: 8px; border: 2px solid var(--color-page); }
+::-webkit-scrollbar-thumb:hover { background: #b4bccd; }
 ::-webkit-scrollbar-track { background: transparent; }
 
 input[type="number"]::-webkit-inner-spin-button { opacity: 0.4; }
-select option { background: var(--color-panel); }
+select option { background: #fff; color: var(--color-ink); }
 
-/* Printing a page (e.g. reports): light background, no app chrome. */
+/* Barcode previews: the SVG stretches to its box. */
+.barcode svg { width: 100%; height: 100%; display: block; }
+
+@keyframes scan-flash { 0% { box-shadow: 0 0 0 0 rgb(16 185 129 / 0.5); } 100% { box-shadow: 0 0 0 10px rgb(16 185 129 / 0); } }
+.scan-flash { animation: scan-flash 0.8s ease-out; }
+
+/* Printing a page (e.g. reports): no app chrome. */
 @media print {
   header, aside, button { display: none !important; }
   body, main, section, #root { background: #fff !important; color: #000 !important; overflow: visible !important; height: auto !important; }
   main { padding: 0 !important; }
-  section, .rounded-xl { border-color: #999 !important; box-shadow: none !important; break-inside: avoid; }
+  section, .rounded-2xl { border-color: #999 !important; box-shadow: none !important; break-inside: avoid; }
   thead tr { background: #eee !important; color: #000 !important; }
   * { color: #000 !important; }
 }

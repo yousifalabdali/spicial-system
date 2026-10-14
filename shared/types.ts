@@ -7,6 +7,7 @@ export type InvoiceStatus = 'paid' | 'partial' | 'unpaid' | 'cancelled'
 export type PurchaseStatus = 'pending' | 'received' | 'cancelled'
 export type ChequeStatus = 'pending' | 'cleared' | 'bounced'
 export type PaperSize = '80mm' | 'A4'
+export type LabelSize = '50x25' | '40x30' | '38x25' | '58x40'
 
 export interface Product {
   id: number
@@ -160,6 +161,11 @@ export interface Settings {
   printer_name: string // '' = system default
   silent_print: boolean
   receipt_footer: string
+  label_size: LabelSize // width x height in mm
+  label_printer: string // '' = system default
+  label_show_shop: boolean
+  label_show_price: boolean
+  scan_auto_print: boolean // print a label as soon as a product is scanned (outside the POS)
 }
 
 export interface DashboardData {
