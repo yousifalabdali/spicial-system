@@ -28,15 +28,17 @@ async function call(name: string, args: unknown[]): Promise<Result> {
       credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ args }),
+      signal: AbortSignal.timeout(30_000),
     })
     const text = await r.text()
     try {
       return JSON.parse(text) as Result
     } catch {
       // Not our JSON: the function didn't run (wrong deploy, crashed, or the host's own error page).
-      return { ok: false, error: `الخادم لم يردّ بشكل صحيح (HTTP ${r.status}). تحقق من سجلات Vercel`, status: r.status === 401 ? 401 : undefined }
+      return { ok: false, error: `الخادم لم يردّ بشكل صحيح (HTTP ${r.status}). تحقق من سجلات الاستضافة (Deploy Logs)`, status: r.status === 401 ? 401 : undefined }
     }
-  } catch {
+  } catch (e) {
+    if ((e as Error).name === 'TimeoutError') return { ok: false, error: 'الخادم لم يردّ خلال 30 ثانية (غالباً لا يستطيع الاتصال بقاعدة البيانات). تحقق من DATABASE_URL وسجلات الاستضافة' }
     return { ok: false, error: 'تعذّر الاتصال بالخادم. تحقق من الإنترنت' }
   }
 }
