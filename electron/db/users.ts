@@ -52,7 +52,6 @@ export async function getUser(id: number): Promise<User | null> {
   return r ? toUser(r) : null
 }
 
-/** The user behind a session, only while the account is active. Read fresh on every call, so revoked rights apply at once. */
 export async function activeUser(id: number | null | undefined): Promise<User | null> {
   if (!id) return null
   const u = await getUser(id)
@@ -83,17 +82,32 @@ export async function createSession(userId: number) {
   return { token, maxAgeSeconds: SESSION_DAYS * 86400 }
 }
 
+// Every API call checks the session, so keep the answer for a few seconds instead of asking the
+// database each time. Any change to users or sessions clears it, so permissions apply at once.
+const SESSION_CACHE_MS = 10_000
+const sessionCache = new Map<string, { user: User | null; until: number }>()
+const forgetSessions = () => sessionCache.clear()
+
 export async function sessionUser(token: string | undefined): Promise<User | null> {
   if (!token) return null
-  const row = await q.one<{ user_id: number }>(`SELECT user_id FROM sessions WHERE token_hash = ? AND expires_at > ${SQL_NOW}`, sha256(token))
-  return activeUser(row?.user_id)
+  const hash = sha256(token)
+  const hit = sessionCache.get(hash)
+  if (hit && hit.until > Date.now()) return hit.user
+  // One round trip: session and user together.
+  const r = await q.one<Row>(`SELECT u.* FROM sessions s JOIN users u ON u.id = s.user_id
+    WHERE s.token_hash = ? AND s.expires_at > ${SQL_NOW} AND u.active = 1`, hash)
+  const user = r ? toUser(r) : null
+  if (sessionCache.size > 5000) sessionCache.clear()
+  sessionCache.set(hash, { user, until: Date.now() + SESSION_CACHE_MS })
+  return user
 }
 
 export async function deleteSession(token: string | undefined) {
+  forgetSessions()
   if (token) await q.run('DELETE FROM sessions WHERE token_hash = ?', sha256(token))
 }
 
-const endSessionsOf = (userId: number) => q.run('DELETE FROM sessions WHERE user_id = ?', userId)
+const endSessionsOf = (userId: number) => (forgetSessions(), q.run('DELETE FROM sessions WHERE user_id = ?', userId))
 
 // ---- Wrong-password lockout (in the database, so it holds across every server instance) ----
 
@@ -183,6 +197,7 @@ export async function saveUser(actor: User, input: UserInput & { id?: number }):
   }
 
   await tx(async () => {
+    forgetSessions()
     await q.run('UPDATE users SET username = ?, name = ?, role = ?, permissions = ? WHERE id = ?',
       username, name, newRole, JSON.stringify(newRole === 'super_admin' ? [] : perms), before.id)
     if (input.password) {
@@ -199,6 +214,7 @@ export async function setUserActive(actor: User, id: number, active: boolean): P
   if (target.id === actor.id) throw new Error('لا يمكنك إيقاف حسابك')
   assertCanManage(actor, target)
   if (!active && target.role === 'super_admin' && (await activeSuperAdmins()) <= 1) throw new Error('يجب أن يبقى سوبر أدمن واحد فعّال على الأقل')
+  forgetSessions()
   await q.run('UPDATE users SET active = ? WHERE id = ?', active ? 1 : 0, id)
   if (!active) await endSessionsOf(id)
   return (await getUser(id))!
@@ -210,6 +226,7 @@ export async function deleteUser(actor: User, id: number) {
   const target = await getUser(id)
   if (!target) return
   if (target.role === 'super_admin' && target.active && (await activeSuperAdmins()) <= 1) throw new Error('يجب أن يبقى سوبر أدمن واحد فعّال على الأقل')
+  forgetSessions()
   await q.run('DELETE FROM users WHERE id = ?', id)
 }
 

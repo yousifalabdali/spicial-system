@@ -83,6 +83,11 @@ npm run dist:win   # بناء ملف exe للويندوز (يعمل من الم�
 
 لا تضع هذه القيم في الكود أو في GitHub: مكانها إعدادات Vercel فقط.
 
+**بديل: Railway بدل Vercel**
+1. على [railway.com](https://railway.com): **New Project → Deploy from GitHub repo** واختر هذا المستودع، ثم من **Settings → Source** اختر الفرع `website-railway`.
+2. في **Variables** أضف: `DATABASE_URL` (رابط Supabase، ويعمل معه Direct أو Pooler) و`SETUP_CODE` و`TRUST_PROXY=1`.
+3. من **Settings → Networking** اضغط **Generate Domain**. يبني Railway من `Dockerfile` تلقائياً (ملف `railway.json`).
+
 **3. تطبيق سطح المكتب**
 عند أول تشغيل يطلب عنوان الموقع (رابط Vercel). بعدها يفتح الموقع مباشرة، ويطبع على الطابعة المختارة في الإعدادات، ويحفظ نسخة احتياطية في مجلد على الجهاز حسب الجدول في **لوحة التحكم** (يعمل والبرنامج مفتوح بحساب سوبر أدمن).
 

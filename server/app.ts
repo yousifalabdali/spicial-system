@@ -22,6 +22,18 @@ const MAX_BODY = 4_000_000 // restoring a backup with product photos can be a fe
 let SETUP_CODE: string | null = process.env.SETUP_CODE?.trim() || null
 let started: Promise<void> | null = null
 
+/** A user-facing reason for a database failure. Never includes the connection string. */
+function dbErrorMessage(e: unknown) {
+  const err = e as { code?: string; message?: string }
+  const base = 'تعذّر الاتصال بقاعدة البيانات: '
+  if (err.code === '28P01') return base + 'كلمة المرور في DATABASE_URL غير صحيحة'
+  if (err.code === 'ENOTFOUND' || err.code === 'EAI_AGAIN') return base + 'عنوان الخادم في DATABASE_URL غير صحيح'
+  if (err.code === 'ETIMEDOUT' || err.code === 'ECONNREFUSED' || err.code === 'ENETUNREACH') return base + 'لا يمكن الوصول للخادم. استخدم رابط Transaction pooler (المنفذ 6543)'
+  if (/Tenant or user not found/i.test(err.message ?? '')) return base + 'اسم المستخدم في DATABASE_URL غير صحيح (يجب أن يكون postgres.رمز-المشروع)'
+  if (/DATABASE_URL is not set/.test(err.message ?? '')) return base + 'متغيّر DATABASE_URL غير موجود'
+  return base + (err.code ?? 'خطأ غير معروف')
+}
+
 /** Connect, create tables, maybe seed. Safe to call on every request (runs once). */
 export function ready() {
   started ??= (async () => {
@@ -99,14 +111,14 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse, name:
     await ready()
   } catch (e) {
     console.error('[db]', e)
-    return sendJson(res, 503, { ok: false, error: 'تعذّر الاتصال بقاعدة البيانات' })
+    return sendJson(res, 503, { ok: false, error: dbErrorMessage(e) })
   }
 
   const token = getCookie(req, 'sid')
   const cookies: string[] = []
   const secure = isHttps(req) ? '; Secure' : ''
   const ctx: Ctx = {
-    user: await sessionUser(token),
+    user: await sessionUser(token).catch((e) => { console.error('[session]', e); throw e }),
     login: async (u) => {
       await deleteSession(token)
       const s = await createSession(u.id)
@@ -120,6 +132,8 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse, name:
     setupCode: SETUP_CODE,
   }
 
+  const started = Date.now()
+  const slow = setTimeout(() => console.warn(`[api:${name}] still running after 15s (database not answering?)`), 15_000)
   try {
     const data = await dispatch(name, args, ctx)
     if (cookies.length) res.setHeader('Set-Cookie', cookies)
@@ -129,5 +143,9 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse, name:
     if (err instanceof AuthError) return sendJson(res, err.status, { ok: false, error: err.message, status: err.status })
     console.error(`[api:${name}]`, err)
     sendJson(res, 400, { ok: false, error: err instanceof Error ? err.message : String(err) })
+  } finally {
+    clearTimeout(slow)
+    const ms = Date.now() - started
+    if (ms > 3000) console.warn(`[api:${name}] took ${ms} ms`)
   }
 }

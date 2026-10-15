@@ -48,6 +48,6 @@ const server = http.createServer((req, res) => {
 })
 
 if (!fs.existsSync(path.join(DIST, 'index.html'))) console.warn(`Warning: ${DIST}/index.html not found. Run "npm run build" first.`)
-ready()
-  .then(() => server.listen(PORT, HOST, () => console.log(`Sales Inventory Pro website: http://localhost:${PORT}  (database: ${process.env.DATABASE_URL ? 'DATABASE_URL' : 'local PGlite'})`)))
-  .catch((e) => { console.error('Could not open the database:', e); process.exit(1) })
+// Start listening even if the database is down, so the website can show the reason (each request retries).
+server.listen(PORT, HOST, () => console.log(`Sales Inventory Pro website: http://localhost:${PORT}  (database: ${process.env.DATABASE_URL ? 'DATABASE_URL' : 'local PGlite'})`))
+ready().catch((e) => console.error('Could not open the database:', e))

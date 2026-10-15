@@ -1,4 +1,5 @@
-# Website build of Sales Inventory Pro. Data lives in the /data volume.
+# Website build of Sales Inventory Pro (Railway, or any Docker host).
+# Data lives in Supabase (DATABASE_URL). Without it, a local database is kept in DATA_DIR.
 FROM node:22-slim AS build
 WORKDIR /app
 ENV ELECTRON_SKIP_BINARY_DOWNLOAD=1
@@ -15,7 +16,6 @@ RUN npm ci --omit=dev && npm cache clean --force
 COPY --from=build /app/dist ./dist
 COPY --from=build /app/dist-server ./dist-server
 RUN mkdir -p /data && chown node:node /data
-VOLUME /data
 EXPOSE 3000
 USER node
 CMD ["node", "dist-server/index.cjs"]
