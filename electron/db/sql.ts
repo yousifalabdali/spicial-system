@@ -33,6 +33,8 @@ async function postgresDriver(url: string): Promise<Driver> {
     prepare: false, // required by Supabase's transaction pooler (port 6543)
     max: Number(process.env.DB_POOL_MAX) || 3,
     idle_timeout: 20,
+    connect_timeout: 10,
+    max_lifetime: 60 * 5, // poolers and proxies drop old connections silently
     onnotice: () => {},
     types: {
       int8: { to: INT8, from: [INT8], parse: toNumber, serialize: String },

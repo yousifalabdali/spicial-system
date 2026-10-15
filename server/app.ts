@@ -118,7 +118,7 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse, name:
   const cookies: string[] = []
   const secure = isHttps(req) ? '; Secure' : ''
   const ctx: Ctx = {
-    user: await sessionUser(token),
+    user: await sessionUser(token).catch((e) => { console.error('[session]', e); throw e }),
     login: async (u) => {
       await deleteSession(token)
       const s = await createSession(u.id)
@@ -132,6 +132,8 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse, name:
     setupCode: SETUP_CODE,
   }
 
+  const started = Date.now()
+  const slow = setTimeout(() => console.warn(`[api:${name}] still running after 15s (database not answering?)`), 15_000)
   try {
     const data = await dispatch(name, args, ctx)
     if (cookies.length) res.setHeader('Set-Cookie', cookies)
@@ -141,5 +143,9 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse, name:
     if (err instanceof AuthError) return sendJson(res, err.status, { ok: false, error: err.message, status: err.status })
     console.error(`[api:${name}]`, err)
     sendJson(res, 400, { ok: false, error: err instanceof Error ? err.message : String(err) })
+  } finally {
+    clearTimeout(slow)
+    const ms = Date.now() - started
+    if (ms > 3000) console.warn(`[api:${name}] took ${ms} ms`)
   }
 }
