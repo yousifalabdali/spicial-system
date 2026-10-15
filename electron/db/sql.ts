@@ -29,10 +29,13 @@ const txExec = new AsyncLocalStorage<Exec>()
 
 async function postgresDriver(url: string): Promise<Driver> {
   const { default: postgres } = await import('postgres')
+  // A long-running server keeps warm connections (a new one costs several round trips);
+  // a serverless function lets them go quickly.
+  const serverless = !!process.env.VERCEL
   const sql = postgres(url, {
     prepare: false, // required by Supabase's transaction pooler (port 6543)
-    max: Number(process.env.DB_POOL_MAX) || 3,
-    idle_timeout: 20,
+    max: Number(process.env.DB_POOL_MAX) || (serverless ? 3 : 10),
+    idle_timeout: serverless ? 20 : 240,
     connect_timeout: 10,
     max_lifetime: 60 * 5, // poolers and proxies drop old connections silently
     onnotice: () => {},
