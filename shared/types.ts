@@ -78,6 +78,7 @@ export interface Invoice {
 
 export interface InvoiceWithItems extends Invoice {
   items: InvoiceItem[]
+  customer_phone: string | null
 }
 
 export interface NewInvoice {

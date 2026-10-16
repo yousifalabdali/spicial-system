@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 import { Area, AreaChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import { BarChart3, Wallet, PieChart as PieIcon, User, Package, Banknote, ShoppingCart, AlertTriangle, AlertCircle, Info, ChevronLeft, PackagePlus, Barcode, ScanBarcode } from 'lucide-react'
+import { BarChart3, Wallet, PieChart as PieIcon, User, Package, Banknote, ShoppingCart, AlertTriangle, AlertCircle, Info, ChevronLeft, PackagePlus, Barcode, ScanBarcode, FileText, UserPlus, Truck, ClipboardList, Landmark, CreditCard, Settings, ShieldCheck, DatabaseBackup, PackageSearch, MessageCircle } from 'lucide-react'
 import { api } from '../lib/api'
 import { useLoad } from '../lib/hooks'
 import { fmt, fmtShort } from '../lib/money'
@@ -15,7 +15,7 @@ const CHANNEL_COLOR: Record<Channel, string> = { retail: '#6366f1', wholesale: '
 export default function Dashboard() {
   const { data: d } = useLoad(() => api.dashboard())
   const navigate = useNavigate()
-  const { can } = useAuth()
+  const { can, isManager } = useAuth()
   if (!d) return null
 
   const channelTotal = d.channels.reduce((s, c) => s + c.total, 0)
@@ -38,6 +38,22 @@ export default function Dashboard() {
     { label: 'التقارير', hint: 'المبيعات والأرباح', icon: <BarChart3 size={22} />, to: '/reports', perm: 'reports', cls: 'from-sky-500 to-blue-600 shadow-sky-500/30' },
   ]
 
+  // Every screen and common task, one click from home. Only what this account may open is shown.
+  const controls: { label: string; icon: React.ReactNode; to: string; tone: Tone; show: boolean }[] = [
+    { label: 'الفواتير', icon: <FileText size={20} />, to: '/sales?tab=invoices', tone: 'indigo', show: can('sales') },
+    { label: 'فواتير مستحقة', icon: <AlertCircle size={20} />, to: '/sales?tab=invoices&status=due', tone: 'rose', show: can('sales') },
+    { label: 'العملاء', icon: <UserPlus size={20} />, to: '/sales?tab=customers', tone: 'sky', show: can('sales') },
+    { label: 'المخزون', icon: <PackageSearch size={20} />, to: '/inventory', tone: 'teal', show: can('inventory') },
+    { label: 'نواقص المخزون', icon: <AlertTriangle size={20} />, to: '/inventory?low=1', tone: 'amber', show: can('inventory') },
+    { label: 'الموردين', icon: <Truck size={20} />, to: '/suppliers', tone: 'violet', show: can('suppliers') },
+    { label: 'أوامر الشراء', icon: <ClipboardList size={20} />, to: '/suppliers?tab=orders', tone: 'slate', show: can('suppliers') },
+    { label: 'الخزينة', icon: <Landmark size={20} />, to: '/treasury', tone: 'emerald', show: can('treasury') },
+    { label: 'الشيكات', icon: <CreditCard size={20} />, to: '/treasury?tab=cheques', tone: 'sky', show: can('treasury') },
+    { label: 'الإعدادات', icon: <Settings size={20} />, to: '/settings', tone: 'slate', show: can('settings') },
+    { label: 'المستخدمين والصلاحيات', icon: <ShieldCheck size={20} />, to: '/admin', tone: 'indigo', show: isManager },
+    { label: 'النسخ الاحتياطي', icon: <DatabaseBackup size={20} />, to: '/admin', tone: 'teal', show: isManager },
+  ]
+
   return (
     <div className="mx-auto flex max-w-[1400px] flex-col gap-5">
       <div className="grid grid-cols-4 gap-4">
@@ -52,6 +68,25 @@ export default function Dashboard() {
           </button>
         ))}
       </div>
+
+      {controls.some((c) => c.show) && (
+        <Panel title="لوحة التحكم">
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(130px,1fr))] gap-3">
+            {controls.filter((c) => c.show).map((c) => (
+              <button key={c.label} onClick={() => navigate(c.to)}
+                className="flex flex-col items-center gap-2 rounded-xl border border-line px-2 py-3 text-center text-sm font-semibold transition hover:-translate-y-0.5 hover:border-indigo-200 hover:bg-indigo-50/40">
+                <span className={`grid h-10 w-10 place-items-center rounded-xl ${TONE[c.tone]}`}>{c.icon}</span>
+                {c.label}
+              </button>
+            ))}
+          </div>
+          {can('sales') && (
+            <p className="mt-3 flex items-center gap-1.5 text-xs text-muted">
+              <MessageCircle size={14} className="text-emerald-600" /> عند البيع تُرسل الفاتورة لواتساب العميل تلقائياً إذا كُتب رقمه في شاشة البيع.
+            </p>
+          )}
+        </Panel>
+      )}
 
       <div className="flex items-center gap-2 rounded-xl border border-indigo-100 bg-indigo-50/60 px-4 py-2.5 text-sm text-indigo-700">
         <ScanBarcode size={18} className="shrink-0" />

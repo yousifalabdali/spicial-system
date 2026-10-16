@@ -1,18 +1,21 @@
 import { useEffect, useState } from 'react'
-import { Printer, FileText, Ban, HandCoins } from 'lucide-react'
+import { Printer, FileText, Ban, HandCoins, MessageCircle } from 'lucide-react'
 import { api } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { ProductImage } from './ProductImage'
 import { fmt } from '../lib/money'
 import { CHANNEL_LABEL, INVOICE_STATUS, METHOD_LABEL } from '../lib/labels'
 import { Button, Field, Modal, Money, MoneyInput, Table, useAction } from './ui'
-import type { InvoiceWithItems } from '../../shared/types'
+import { invoiceMessage, waLink, waNumber } from '../lib/whatsapp'
+import type { InvoiceWithItems, Settings } from '../../shared/types'
 
 export function InvoiceModal({ id, onClose, onChange }: { id: number | null; onClose: () => void; onChange?: () => void }) {
   const canCancel = useAuth().can('invoices_cancel')
   const [inv, setInv] = useState<InvoiceWithItems | null>(null)
   const [payAmount, setPayAmount] = useState(0)
   const run = useAction()
+  const [shop, setShop] = useState<Settings | null>(null)
+  useEffect(() => { api.getSettings().then(setShop).catch(() => {}) }, [])
 
   useEffect(() => {
     setInv(null)
@@ -68,6 +71,16 @@ export function InvoiceModal({ id, onClose, onChange }: { id: number | null; onC
           <Button onClick={() => run(() => api.printInvoice(inv.id))}><Printer size={16} /> طباعة</Button>
           <Button variant="ghost" onClick={() => run(() => api.printInvoice(inv.id, { paper: '80mm', pdf: true }))}><FileText size={16} /> PDF حراري</Button>
           <Button variant="ghost" onClick={() => run(() => api.printInvoice(inv.id, { paper: 'A4', pdf: true }))}><FileText size={16} /> PDF A4</Button>
+          <Button variant="ghost" className="text-emerald-700" onClick={() => {
+            let num = waNumber(inv.customer_phone)
+            if (!num) {
+              const typed = prompt('رقم واتساب العميل:', inv.customer_phone ?? '')
+              if (typed === null) return
+              num = waNumber(typed)
+              if (!num) return alert('رقم الهاتف غير صحيح')
+            }
+            if (shop) window.open(waLink(num, invoiceMessage(inv, shop)), '_blank', 'noopener')
+          }}><MessageCircle size={16} /> واتساب</Button>
         </div>
         {inv.status !== 'cancelled' && canCancel && (
           <Button variant="danger" onClick={async () => {

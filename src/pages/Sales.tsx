@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Search, Trash2, Plus, Minus, Save, Printer, Pencil, UserPlus, ScanBarcode, ShoppingBag } from 'lucide-react'
+import { Search, Trash2, Plus, Minus, Save, Printer, Pencil, UserPlus, ScanBarcode, ShoppingBag, MessageCircle } from 'lucide-react'
 import { api } from '../lib/api'
 import { useLoad } from '../lib/hooks'
 import { useScanner } from '../lib/scanner'
@@ -11,6 +11,7 @@ import { CHANNEL_LABEL, INVOICE_STATUS, METHOD_LABEL } from '../lib/labels'
 import { Button, Field, IconButton, Input, Money, MoneyInput, Panel, Select, Table, Tabs, useAction, useToast } from '../components/ui'
 import { InvoiceModal } from '../components/InvoiceModal'
 import { PartyModal } from '../components/PartyModal'
+import { invoiceMessage, openWhatsApp, reserveWindow, waLink, waNumber } from '../lib/whatsapp'
 import type { Channel, Customer, PaymentMethod, Product } from '../../shared/types'
 
 type Tab = 'pos' | 'invoices' | 'customers'
@@ -54,6 +55,9 @@ function Pos() {
   const [paid, setPaid] = useState(0)
   const [newCustomer, setNewCustomer] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [waPhone, setWaPhone] = useState('')
+  const [sendWa, setSendWa] = useState(() => { try { return localStorage.getItem('pos.sendWa') !== '0' } catch { return true } })
+  const toggleWa = (on: boolean) => { setSendWa(on); try { localStorage.setItem('pos.sendWa', on ? '1' : '0') } catch { /* private mode */ } }
   const searchRef = useRef<HTMLInputElement>(null)
 
   const filtered = useMemo(() => {
@@ -99,12 +103,15 @@ function Pos() {
   const totals = calcTotals(subtotal, discount, vatRate)
 
   const reset = () => {
-    setCart([]); setDiscount(0); setPaid(0); setCustomerId(null); setMethod('cash'); setChannel('retail')
+    setCart([]); setDiscount(0); setPaid(0); setCustomerId(null); setWaPhone(''); setMethod('cash'); setChannel('retail')
     products.reload(); customers.reload()
     searchRef.current?.focus()
   }
 
+  const waTo = sendWa ? waNumber(waPhone) : null
+
   const save = async (print: boolean) => {
+    const waWindow = waTo ? reserveWindow() : null
     setSaving(true)
     const inv = await run(() => api.createInvoice({
       customer_id: customerId,
@@ -117,7 +124,9 @@ function Pos() {
       notes: null,
     }), 'تم حفظ الفاتورة')
     setSaving(false)
-    if (!inv) return
+    if (!inv) { waWindow?.close(); return }
+    if (waTo && settings.data) openWhatsApp(waLink(waTo, invoiceMessage(inv, settings.data)), waWindow)
+    else waWindow?.close()
     window.dispatchEvent(new Event(STOCK_CHANGED))
     reset()
     if (print) run(() => api.printInvoice(inv.id))
@@ -163,7 +172,11 @@ function Pos() {
         <div className="mb-3 grid grid-cols-2 gap-2">
           <Field label="العميل">
             <div className="flex gap-1">
-              <Select value={customerId ?? ''} onChange={(e) => setCustomerId(e.target.value ? Number(e.target.value) : null)}>
+              <Select value={customerId ?? ''} onChange={(e) => {
+                const id = e.target.value ? Number(e.target.value) : null
+                setCustomerId(id)
+                setWaPhone(customers.data?.find((c) => c.id === id)?.phone ?? '')
+              }}>
                 <option value="">عميل نقدي</option>
                 {customers.data?.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
               </Select>
@@ -222,6 +235,16 @@ function Pos() {
           )}
         </div>
 
+        <div className="mt-3 flex items-center gap-2 rounded-xl border border-emerald-100 bg-emerald-50/50 px-3 py-2">
+          <label className="flex shrink-0 cursor-pointer items-center gap-1.5 text-sm font-semibold text-emerald-700">
+            <input type="checkbox" className="accent-emerald-600" checked={sendWa} onChange={(e) => toggleWa(e.target.checked)} />
+            <MessageCircle size={17} /> واتساب
+          </label>
+          <Input className="num !py-1.5 text-left" dir="ltr" placeholder="رقم العميل مثل 91234567" value={waPhone} disabled={!sendWa}
+            onChange={(e) => setWaPhone(e.target.value)} />
+        </div>
+        {sendWa && waPhone.trim() !== '' && !waTo && <p className="mt-1 text-xs text-rose-600">رقم الهاتف غير صحيح</p>}
+
         <div className="mt-3 space-y-1 rounded-xl bg-slate-50 p-3 text-sm">
           <div className="flex justify-between text-muted"><span>المجموع</span><Money v={subtotal} className="text-ink" /></div>
           {totals.discount > 0 && <div className="flex justify-between text-muted"><span>الخصم</span><Money v={-totals.discount} className="text-ink" /></div>}
@@ -244,6 +267,7 @@ function Pos() {
           setNewCustomer(false)
           customers.reload()
           setCustomerId(id)
+          setWaPhone(p.phone ?? '')
         }} />
     </div>
   )

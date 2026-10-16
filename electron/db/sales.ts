@@ -64,7 +64,7 @@ export async function createInvoice(input: NewInvoice): Promise<InvoiceWithItems
 }
 
 export async function getInvoice(id: number): Promise<InvoiceWithItems> {
-  const inv = await q.one<Invoice>('SELECT * FROM sales_invoices WHERE id = ?', id)
+  const inv = await q.one<Invoice & { customer_phone: string | null }>('SELECT i.*, c.phone AS customer_phone FROM sales_invoices i LEFT JOIN customers c ON c.id = i.customer_id WHERE i.id = ?', id)
   if (!inv) throw new Error('الفاتورة غير موجودة')
   const items = await q.all<InvoiceItem>('SELECT si.*, (p.image IS NOT NULL)::int AS has_image FROM sales_items si LEFT JOIN products p ON p.id = si.product_id WHERE si.invoice_id = ? ORDER BY si.id', id)
   return { ...inv, items }
