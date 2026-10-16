@@ -14,23 +14,23 @@ import type { Channel } from '../../shared/types'
 const CHANNEL_COLOR: Record<Channel, string> = { retail: '#6366f1', wholesale: '#14b8a6', distribution: '#f59e0b' }
 
 export default function Dashboard() {
-  const { data: d } = useLoad(() => api.dashboard())
+  const { data: d, error } = useLoad(() => api.dashboard())
   const navigate = useNavigate()
   const { can, isManager, user } = useAuth()
   const layout = useHomeLayout(user?.id)
-  if (!d) return null
 
-  const channelTotal = d.channels.reduce((s, c) => s + c.total, 0)
+  // The controls show right away; the numbers fill in when they arrive.
+  const channelTotal = (d?.channels ?? []).reduce((s, c) => s + c.total, 0)
   const pie = (['retail', 'wholesale', 'distribution'] as Channel[]).map((ch) => {
-    const total = d.channels.find((c) => c.channel === ch)?.total ?? 0
+    const total = d?.channels.find((c) => c.channel === ch)?.total ?? 0
     return { ch, total, pct: channelTotal ? Math.round((total / channelTotal) * 100) : 0 }
   })
 
   const alerts: { label: string; count: number; icon: React.ReactNode; tone: Tone; to: string }[] = [
-    { label: 'منتجات منخفضة المخزون', count: d.alerts.lowStock, icon: <AlertTriangle size={18} />, tone: 'amber', to: '/inventory?low=1' },
-    { label: 'فواتير مستحقة الدفع', count: d.alerts.dueInvoices, icon: <AlertCircle size={18} />, tone: 'rose', to: '/sales?tab=invoices&status=due' },
-    { label: 'أوامر شراء متأخرة', count: d.alerts.latePurchases, icon: <AlertCircle size={18} />, tone: 'rose', to: '/suppliers?tab=orders' },
-    { label: 'شيكات قريبة من الاستحقاق', count: d.alerts.dueCheques, icon: <Info size={18} />, tone: 'sky', to: '/treasury?tab=cheques' },
+    { label: 'منتجات منخفضة المخزون', count: d?.alerts.lowStock ?? 0, icon: <AlertTriangle size={18} />, tone: 'amber', to: '/inventory?low=1' },
+    { label: 'فواتير مستحقة الدفع', count: d?.alerts.dueInvoices ?? 0, icon: <AlertCircle size={18} />, tone: 'rose', to: '/sales?tab=invoices&status=due' },
+    { label: 'أوامر شراء متأخرة', count: d?.alerts.latePurchases ?? 0, icon: <AlertCircle size={18} />, tone: 'rose', to: '/suppliers?tab=orders' },
+    { label: 'شيكات قريبة من الاستحقاق', count: d?.alerts.dueCheques ?? 0, icon: <Info size={18} />, tone: 'sky', to: '/treasury?tab=cheques' },
   ]
 
   const quick: { label: string; hint: string; icon: React.ReactNode; to: string; cls: string; perm: Permission }[] = [
@@ -103,7 +103,13 @@ export default function Dashboard() {
         امسح أي منتج بقارئ الباركود من أي شاشة لعرضه وطباعة ملصقه. وفي شاشة البيع يُضاف للفاتورة مباشرة.
       </div>
 
-      {layout.show('stats') && <>
+      {!d && (layout.show('stats') || layout.show('latest') || layout.show('charts')) && (
+        <div className={`rounded-xl border px-4 py-6 text-center text-sm ${error ? 'border-rose-100 bg-rose-50 text-rose-700' : 'border-line bg-white text-muted'}`}>
+          {error ? <>تعذّر تحميل أرقام الرئيسية: {error}</> : 'جارٍ تحميل الأرقام…'}
+        </div>
+      )}
+
+      {d && layout.show('stats') && <>
       <div className="grid grid-cols-4 gap-4">
         <StatCard label="مبيعات الشهر" value={fmt(d.monthSales)} tone="indigo" icon={<BarChart3 size={24} />} onClick={() => navigate('/reports')} />
         <StatCard label="تحصيلات اليوم" value={fmt(d.todayCollections)} tone="emerald" icon={<Wallet size={24} />} onClick={() => navigate('/treasury')} />
@@ -117,7 +123,7 @@ export default function Dashboard() {
       <p className="-mt-3 text-xs text-muted">المبالغ بالريال العماني (ر.ع)</p>
       </>}
 
-      {layout.show('latest') && <div className="grid grid-cols-[1.45fr_1fr] gap-5">
+      {d && layout.show('latest') && <div className="grid grid-cols-[1.45fr_1fr] gap-5">
         <Panel title="آخر الفواتير" actions={<button className="flex items-center text-sm font-semibold text-accent hover:underline" onClick={() => navigate('/sales?tab=invoices')}>عرض الكل <ChevronLeft size={16} /></button>}>
           <Table head={['رقم الفاتورة', 'العميل', 'المبلغ', 'الحالة']} empty="لا توجد فواتير بعد">
             {d.latestInvoices.map((inv) => (
@@ -145,7 +151,7 @@ export default function Dashboard() {
         </Panel>
       </div>}
 
-      {layout.show('charts') && <div className="grid grid-cols-[1.45fr_1fr] gap-5">
+      {d && layout.show('charts') && <div className="grid grid-cols-[1.45fr_1fr] gap-5">
         <Panel title="حركة اليوم">
           <div className="h-56" dir="ltr">
             <ResponsiveContainer>
