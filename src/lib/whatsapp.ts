@@ -36,7 +36,7 @@ export function invoiceMessage(inv: InvoiceWithItems, shop: Pick<Settings, 'shop
   ].join('\n').replace(/\n{3,}/g, '\n\n').trim()
 }
 
-export const waLink = (number: string, text: string) => `https://wa.me/${number}?text=${encodeURIComponent(text)}`
+export const waLink = (number: string, text: string) => `https://api.whatsapp.com/send/?phone=${number}&text=${encodeURIComponent(text)}`
 
 /**
  * Browsers block windows opened after an await, so grab one during the click and fill it later.
