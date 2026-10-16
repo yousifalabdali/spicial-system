@@ -7,6 +7,7 @@
 //   APP_TIMEZONE   shop time zone for dates (default Asia/Muscat).
 //   TRUST_PROXY=1  behind a proxy/load balancer (automatic on Vercel).
 //   SEED_DEMO=1    fill an empty database with demo data.
+import { gzipSync } from 'node:zlib'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import path from 'node:path'
 import { randomBytes } from 'node:crypto'
@@ -70,11 +71,22 @@ const isHttps = (req: IncomingMessage) => (TRUST_PROXY && req.headers['x-forward
 const clientIp = (req: IncomingMessage) =>
   (TRUST_PROXY && String(req.headers['x-forwarded-for'] ?? '').split(',')[0].trim()) || req.socket.remoteAddress || '?'
 
+/** Gzip what is worth it (product lists, reports, backups shrink 5-10x), when the browser accepts it. */
+export function sendCompressed(res: ServerResponse, data: string | Buffer) {
+  const buf = typeof data === 'string' ? Buffer.from(data) : data
+  res.setHeader('Vary', 'Accept-Encoding')
+  if (buf.length > 1024 && /\bgzip\b/.test(String(res.req?.headers['accept-encoding'] ?? ''))) {
+    res.setHeader('Content-Encoding', 'gzip')
+    return res.end(gzipSync(buf, { level: 6 }))
+  }
+  res.end(buf)
+}
+
 export function sendJson(res: ServerResponse, status: number, body: unknown) {
   res.statusCode = status
   res.setHeader('Content-Type', 'application/json; charset=utf-8')
   res.setHeader('Cache-Control', 'no-store')
-  res.end(JSON.stringify(body))
+  sendCompressed(res, JSON.stringify(body))
 }
 
 /** The request body as parsed JSON. Vercel has already parsed it into req.body; plain Node has not. */

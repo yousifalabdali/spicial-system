@@ -37,6 +37,7 @@ async function postgresDriver(url: string): Promise<Driver> {
     max: Number(process.env.DB_POOL_MAX) || (serverless ? 3 : 10),
     idle_timeout: serverless ? 20 : 240,
     connect_timeout: 10,
+    keep_alive: 30, // TCP keepalive so idle connections aren't silently dropped by NAT/proxies
     max_lifetime: 60 * 5, // poolers and proxies drop old connections silently
     onnotice: () => {},
     types: {
@@ -45,8 +46,23 @@ async function postgresDriver(url: string): Promise<Driver> {
     },
   })
   const run = (s: { unsafe: typeof sql.unsafe }): Exec => async (text, params) => [...(await s.unsafe(text, params as never[]))] as Row[]
+  const plain = run(sql)
+  // A connection the network dropped fails its next query; postgres.js then opens a fresh one.
+  // Reads are sent again once, so the user never sees the blip. A write is only resent when it never
+  // reached the database (connect failed); otherwise it may have been applied and must not run twice.
+  const DROPPED = new Set(['CONNECTION_CLOSED', 'CONNECTION_ENDED', 'CONNECTION_DESTROYED', 'ECONNRESET', 'EPIPE', 'ETIMEDOUT'])
+  const retrying: Exec = async (text, params) => {
+    try {
+      return await plain(text, params)
+    } catch (e) {
+      const code = (e as { code?: string }).code ?? ''
+      const read = /^\s*(SELECT|WITH)\b/i.test(text) && !/\bFOR UPDATE\b/i.test(text)
+      if (code === 'CONNECT_TIMEOUT' || (read && DROPPED.has(code))) return plain(text, params)
+      throw e
+    }
+  }
   return {
-    exec: run(sql),
+    exec: retrying,
     transaction: (fn) => sql.begin((tx) => fn(run(tx as unknown as typeof sql))) as never,
   }
 }

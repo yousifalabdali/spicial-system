@@ -148,6 +148,24 @@ const SCHEMA = [
   )`,
 ]
 
+// Indexes for the lookups the screens make (joins, filters, the session check on every request).
+const INDEXES = [
+  'CREATE INDEX IF NOT EXISTS idx_sales_customer ON sales_invoices(customer_id)',
+  'CREATE INDEX IF NOT EXISTS idx_sales_status ON sales_invoices(status)',
+  'CREATE INDEX IF NOT EXISTS idx_sales_items_product ON sales_items(product_id)',
+  'CREATE INDEX IF NOT EXISTS idx_purchase_supplier ON purchase_orders(supplier_id)',
+  'CREATE INDEX IF NOT EXISTS idx_purchase_status ON purchase_orders(status)',
+  'CREATE INDEX IF NOT EXISTS idx_purchase_items_order ON purchase_items(order_id)',
+  'CREATE INDEX IF NOT EXISTS idx_cheques_due ON cheques(status, due_date)',
+  'CREATE INDEX IF NOT EXISTS idx_stock_moves_product ON stock_moves(product_id)',
+  'CREATE INDEX IF NOT EXISTS idx_products_live ON products(deleted, name)',
+  'CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id)',
+  'CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions(expires_at)',
+]
+
+/** Bump when SCHEMA, INDEXES or LOCKDOWN change; servers then re-run them once. */
+const SCHEMA_VERSION = '2'
+
 const TABLES = ['settings', 'products', 'customers', 'suppliers', 'sales_invoices', 'sales_items', 'purchase_orders', 'purchase_items', 'treasury', 'cheques', 'stock_moves', 'users', 'sessions', 'login_attempts']
 
 // Supabase also publishes the public schema through its REST API. Row level security with no policies
@@ -182,7 +200,15 @@ let ready: Promise<void> | null = null
 export function openDb(opts: { url?: string; localDir?: string }) {
   ready ??= (async () => {
     await connect(opts)
-    for (const stmt of [...SCHEMA, ...LOCKDOWN]) await q.raw(stmt)
+    // Usually one quick read: the ~40 setup statements only run on a new database or after an upgrade,
+    // which keeps cold starts fast when the database is far away.
+    const v = await q.one<{ value: string }>("SELECT value FROM settings WHERE key = '_schema'").catch(() => undefined)
+    if (v?.value !== JSON.stringify(SCHEMA_VERSION)) {
+      for (const stmt of [...SCHEMA, ...INDEXES, ...LOCKDOWN]) await q.raw(stmt)
+      await q.run(UPSERT, '_schema', JSON.stringify(SCHEMA_VERSION))
+    }
+    // Expired logins pile up otherwise. Not awaited: nothing depends on it.
+    q.run(`DELETE FROM sessions WHERE expires_at < ${SQL_NOW}`).catch(() => {})
   })().catch((e) => { ready = null; throw e })
   return ready
 }
