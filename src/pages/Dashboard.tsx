@@ -7,6 +7,7 @@ import { fmt, fmtShort } from '../lib/money'
 import { CHANNEL_LABEL, INVOICE_STATUS } from '../lib/labels'
 import { Money, Panel, StatCard, Table, TONE, type Tone } from '../components/ui'
 import { useAuth } from '../lib/auth'
+import { CustomizeHome, LowStockList, QuickProductSearch, useHomeLayout } from '../components/HomeWidgets'
 import type { Permission } from '../../shared/auth'
 import type { Channel } from '../../shared/types'
 
@@ -15,7 +16,8 @@ const CHANNEL_COLOR: Record<Channel, string> = { retail: '#6366f1', wholesale: '
 export default function Dashboard() {
   const { data: d } = useLoad(() => api.dashboard())
   const navigate = useNavigate()
-  const { can, isManager } = useAuth()
+  const { can, isManager, user } = useAuth()
+  const layout = useHomeLayout(user?.id)
   if (!d) return null
 
   const channelTotal = d.channels.reduce((s, c) => s + c.total, 0)
@@ -56,7 +58,8 @@ export default function Dashboard() {
 
   return (
     <div className="mx-auto flex max-w-[1400px] flex-col gap-5">
-      <div className="grid grid-cols-4 gap-4">
+      <div className="-mb-2 flex justify-end"><CustomizeHome layout={layout} /></div>
+      {layout.show('quick') && <div className="grid grid-cols-4 gap-4">
         {quick.filter((q) => can(q.perm)).map((q) => (
           <button key={q.label} onClick={() => navigate(q.to)}
             className={`flex items-center gap-3 rounded-2xl bg-gradient-to-br p-4 text-right text-white shadow-lg transition hover:-translate-y-0.5 ${q.cls}`}>
@@ -67,9 +70,9 @@ export default function Dashboard() {
             </span>
           </button>
         ))}
-      </div>
+      </div>}
 
-      {controls.some((c) => c.show) && (
+      {layout.show('controls') && controls.some((c) => c.show) && (
         <Panel title="لوحة التحكم">
           <div className="grid grid-cols-[repeat(auto-fill,minmax(130px,1fr))] gap-3">
             {controls.filter((c) => c.show).map((c) => (
@@ -88,11 +91,19 @@ export default function Dashboard() {
         </Panel>
       )}
 
+      {(layout.show('search') || layout.show('lowStock')) && (can('sales') || can('inventory')) && (
+        <div className="grid grid-cols-[1.45fr_1fr] gap-5">
+          {layout.show('search') && <QuickProductSearch canSell={can('sales')} canEdit={can('inventory')} />}
+          {layout.show('lowStock') && <LowStockList canEdit={can('inventory')} />}
+        </div>
+      )}
+
       <div className="flex items-center gap-2 rounded-xl border border-indigo-100 bg-indigo-50/60 px-4 py-2.5 text-sm text-indigo-700">
         <ScanBarcode size={18} className="shrink-0" />
         امسح أي منتج بقارئ الباركود من أي شاشة لعرضه وطباعة ملصقه. وفي شاشة البيع يُضاف للفاتورة مباشرة.
       </div>
 
+      {layout.show('stats') && <>
       <div className="grid grid-cols-4 gap-4">
         <StatCard label="مبيعات الشهر" value={fmt(d.monthSales)} tone="indigo" icon={<BarChart3 size={24} />} onClick={() => navigate('/reports')} />
         <StatCard label="تحصيلات اليوم" value={fmt(d.todayCollections)} tone="emerald" icon={<Wallet size={24} />} onClick={() => navigate('/treasury')} />
@@ -104,8 +115,9 @@ export default function Dashboard() {
         <StatCard label="أوامر شراء قيد الانتظار" value={d.pendingPurchases} suffix="طلب" tone="slate" icon={<ShoppingCart size={24} />} onClick={() => navigate('/suppliers?tab=orders')} />
       </div>
       <p className="-mt-3 text-xs text-muted">المبالغ بالريال العماني (ر.ع)</p>
+      </>}
 
-      <div className="grid grid-cols-[1.45fr_1fr] gap-5">
+      {layout.show('latest') && <div className="grid grid-cols-[1.45fr_1fr] gap-5">
         <Panel title="آخر الفواتير" actions={<button className="flex items-center text-sm font-semibold text-accent hover:underline" onClick={() => navigate('/sales?tab=invoices')}>عرض الكل <ChevronLeft size={16} /></button>}>
           <Table head={['رقم الفاتورة', 'العميل', 'المبلغ', 'الحالة']} empty="لا توجد فواتير بعد">
             {d.latestInvoices.map((inv) => (
@@ -131,9 +143,9 @@ export default function Dashboard() {
             ))}
           </div>
         </Panel>
-      </div>
+      </div>}
 
-      <div className="grid grid-cols-[1.45fr_1fr] gap-5">
+      {layout.show('charts') && <div className="grid grid-cols-[1.45fr_1fr] gap-5">
         <Panel title="حركة اليوم">
           <div className="h-56" dir="ltr">
             <ResponsiveContainer>
@@ -186,7 +198,7 @@ export default function Dashboard() {
             </ul>
           </div>
         </Panel>
-      </div>
+      </div>}
     </div>
   )
 }

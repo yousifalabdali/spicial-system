@@ -4,6 +4,7 @@
 //   npm run build && npm run build:server
 //   PORT=3000 node dist-server/index.cjs          (local PGlite database in ./data)
 //   DATABASE_URL=postgres://... node dist-server/index.cjs   (Supabase)
+import './env' // first: loads .env before the app reads its settings
 import http from 'node:http'
 import fs from 'node:fs'
 import path from 'node:path'

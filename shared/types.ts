@@ -171,6 +171,8 @@ export interface Settings {
   label_show_price: boolean
   scan_auto_print: boolean // print a label as soon as a product is scanned (outside the POS)
   receipt_show_images: boolean // product photos next to each line on printed invoices
+  low_stock_email_enabled: boolean // email when a product reaches its minimum
+  low_stock_email: string // recipients, comma separated
 }
 
 export interface DashboardData {

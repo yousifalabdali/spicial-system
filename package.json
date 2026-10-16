@@ -14,16 +14,19 @@
     "build:server": "vite build --config vite.server.config.ts",
     "start": "node dist-server/index.cjs",
     "web": "npm run build && npm run build:server && node dist-server/index.cjs",
+    "local": "npm run web",
     "build:web": "tsc --noEmit && vite build"
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.5.9",
+    "nodemailer": "^7.0.13",
     "postgres": "^3.4.9"
   },
   "devDependencies": {
     "@fontsource/cairo": "^5.3.0",
     "@tailwindcss/vite": "^4.3.3",
     "@types/node": "^26.6.3",
+    "@types/nodemailer": "^8.0.2",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.1.1",

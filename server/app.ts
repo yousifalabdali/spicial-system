@@ -15,10 +15,14 @@ import { openDb } from '../electron/db'
 import { seedIfEmpty } from '../electron/db/seed'
 import { createSession, deleteSession, hasUsers, sessionUser } from '../electron/db/users'
 import { AuthError, dispatch, type Ctx } from '../electron/api'
+import { notifyLowStock } from '../electron/lowStockMail'
 
 const ON_VERCEL = !!process.env.VERCEL
 const TRUST_PROXY = ON_VERCEL || process.env.TRUST_PROXY === '1'
 const MAX_BODY = 4_000_000 // restoring a backup with product photos can be a few MB (Vercel's own limit is 4.5 MB)
+
+/** Calls that only read, so stock can't have changed. */
+const READ_ONLY = /^(get|list|auth|dashboard|salesReport|lowStock|treasuryBalance|export|invoiceHtml|labelHtml|emailStatus|sendTestEmail|login|logout|changePassword)/
 
 let SETUP_CODE: string | null = process.env.SETUP_CODE?.trim() || null
 let started: Promise<void> | null = null
@@ -148,6 +152,12 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse, name:
   const slow = setTimeout(() => console.warn(`[api:${name}] still running after 15s (database not answering?)`), 15_000)
   try {
     const data = await dispatch(name, args, ctx)
+    // Anything that may have changed stock: email newly low products. On Vercel the function freezes
+    // after replying, so wait there; elsewhere reply first.
+    if (!READ_ONLY.test(name)) {
+      const mail = notifyLowStock().catch((e) => console.error('[low-stock email]', e))
+      if (ON_VERCEL) await mail
+    }
     if (cookies.length) res.setHeader('Set-Cookie', cookies)
     sendJson(res, 200, { ok: true, data })
   } catch (err) {

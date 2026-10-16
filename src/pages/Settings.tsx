@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Save, Trash2, ScanBarcode, CheckCircle2, Usb } from 'lucide-react'
+import { Save, Trash2, ScanBarcode, CheckCircle2, Usb, Mail, Send } from 'lucide-react'
 import { api, isDesktop } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { useLoad } from '../lib/hooks'
@@ -14,6 +14,36 @@ function Check({ label, checked, onChange, className = '' }: { label: string; ch
       <input type="checkbox" className="h-4 w-4 accent-indigo-600" checked={checked} onChange={(e) => onChange(e.target.checked)} />
       {label}
     </label>
+  )
+}
+
+/** Low-stock email: who gets it, and a test send. The SMTP account itself lives in server variables. */
+function EmailAlerts({ form, setForm }: { form: Settings; setForm: (s: Settings) => void }) {
+  const status = useLoad(() => api.emailStatus())
+  const run = useAction()
+  const configured = status.data?.configured
+  return (
+    <div className="space-y-3">
+      <Check label="أرسل بريداً تلقائياً عندما يصل أي صنف إلى الحد الأدنى للمخزون" checked={form.low_stock_email_enabled}
+        onChange={(v) => setForm({ ...form, low_stock_email_enabled: v })} />
+      <div className="flex items-end gap-2">
+        <Field label="البريد الذي يستلم التنبيه (أكثر من بريد: افصل بفاصلة)" className="flex-1">
+          <Input dir="ltr" className="text-left" placeholder="owner@example.com" value={form.low_stock_email}
+            onChange={(e) => setForm({ ...form, low_stock_email: e.target.value })} />
+        </Field>
+        <Button variant="ghost" disabled={!configured || !form.low_stock_email.trim()}
+          onClick={() => run(async () => { const to = await api.sendTestEmail(form.low_stock_email); return to }, 'تم إرسال رسالة تجربة. افحص بريدك')}>
+          <Send size={16} /> رسالة تجربة
+        </Button>
+      </div>
+      {status.data && !configured && (
+        <p className="rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-800">
+          الخادم لم يُعدّ للإرسال بعد. أضف في متغيّرات الاستضافة (أو ملف .env محلياً): <span dir="ltr" className="font-mono">SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS</span>.
+          مع Gmail: <span dir="ltr" className="font-mono">smtp.gmail.com</span> والمنفذ 587 و«كلمة مرور التطبيقات» من إعدادات حساب Google.
+        </p>
+      )}
+      <p className="text-xs text-muted">يُرسل التنبيه مرة واحدة لكل صنف عند وصوله للحد الأدنى، ويتجدد بعد إعادة تعبئته فوق الحد. حدد «الحد الأدنى» لكل صنف من شاشة المخزون.</p>
+    </div>
   )
 }
 
@@ -117,6 +147,10 @@ export default function SettingsPage() {
           )}
           <Check className="col-span-2" label="إظهار صور المنتجات بجانب الأصناف في الفاتورة المطبوعة" checked={form.receipt_show_images} onChange={(v) => setForm({ ...form, receipt_show_images: v })} />
         </div>
+      </Panel>
+
+      <Panel title={<span className="flex items-center gap-2"><Mail size={18} /> تنبيهات المخزون بالبريد</span>} className="mb-4">
+        <EmailAlerts form={form} setForm={setForm} />
       </Panel>
 
       <Panel title="قارئ الباركود" className="mb-4">

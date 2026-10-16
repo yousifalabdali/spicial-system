@@ -8,6 +8,8 @@ import * as treasury from './db/treasury'
 import * as reports from './db/reports'
 import * as users from './db/users'
 import { exportBackup, restoreBackup } from './backup'
+import { sendTestEmail } from './lowStockMail'
+import { mailConfigured } from './mail'
 import { labelHtml, receiptHtml } from './printHtml'
 import { isEncodable } from '../shared/barcode'
 import { can, canManageUsers, type Permission, type User, type UserInput } from '../shared/auth'
@@ -33,6 +35,8 @@ const dataHandlers = {
   resetData,
   exportBackup,
   restoreBackup,
+  sendTestEmail: (to: string) => sendTestEmail(String(to ?? '')),
+  emailStatus: () => ({ configured: mailConfigured() }),
 
   /** Printing: the browser (or the desktop app) prints this HTML. */
   async invoiceHtml(id: number, paper?: PaperSize) {
@@ -102,6 +106,7 @@ const RULES: Record<string, Rule> = {
   listUsers: 'managers', saveUser: 'managers', setUserActive: 'managers', deleteUser: 'super',
   resetData: 'super', exportBackup: 'super', restoreBackup: 'super',
   lowStockItems: ['inventory', 'dashboard', 'sales', 'suppliers'],
+  sendTestEmail: ['settings'], emailStatus: ['settings'],
 
   dashboard: ['dashboard'],
   salesReport: ['reports'],
