@@ -12,7 +12,7 @@ const r = (omr: number) => Math.round(omr * 1000)
 
 export async function seedIfEmpty() {
   if (await getMeta('seeded')) return
-  const hasData = (await q.one<{ c: number }>('SELECT COUNT(*) AS c FROM products'))!.c > 0
+  const hasData = !!(await q.one('SELECT 1 FROM products LIMIT 1'))
   await setMeta('seeded', '1')
   if (hasData) return
 

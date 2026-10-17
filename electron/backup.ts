@@ -35,7 +35,7 @@ export interface BackupFile {
 export async function exportBackup(): Promise<BackupFile> {
   const tables: BackupFile['tables'] = {}
   for (const t of ORDER) tables[t] = await q.all(`SELECT ${COLUMNS[t].join(', ')} FROM ${t} ORDER BY id`)
-  const rows = await q.all<{ key: string; value: string }>("SELECT key, value FROM settings WHERE key NOT LIKE '\\_%' ESCAPE '\\'")
+  const rows = await q.all<{ key: string; value: string }>("SELECT key, value FROM settings WHERE key NOT LIKE '\\_%' ESCAPE '\\' LIMIT 200")
   const exportedAt = (await q.one<{ t: string }>(`SELECT ${SQL_NOW} AS t`))!.t
   return {
     app: APP_ID,

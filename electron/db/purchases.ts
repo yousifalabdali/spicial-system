@@ -1,19 +1,20 @@
 // Purchase orders from suppliers. Receiving an order adds its items to stock.
 import { nowLocal } from './index'
 import { q, tx } from './sql'
+import { C, MAX } from './columns'
 import type { NewPurchaseOrder, Product, PurchaseItem, PurchaseOrder, PurchaseOrderWithItems } from '../../shared/types'
 
-const SELECT = `SELECT p.*, s.name AS supplier_name FROM purchase_orders p JOIN suppliers s ON s.id = p.supplier_id`
+const SELECT = `SELECT ${C.purchase('p')}, s.name AS supplier_name FROM purchase_orders p JOIN suppliers s ON s.id = p.supplier_id`
 
 export async function listPurchases(filter: { status?: string } = {}): Promise<PurchaseOrder[]> {
-  if (filter.status) return q.all<PurchaseOrder>(`${SELECT} WHERE p.status = ? ORDER BY p.id DESC`, filter.status)
-  return q.all<PurchaseOrder>(`${SELECT} ORDER BY p.id DESC LIMIT 500`)
+  if (filter.status) return q.all<PurchaseOrder>(`${SELECT} WHERE p.status = ? ORDER BY p.id DESC LIMIT ${MAX.purchases}`, filter.status)
+  return q.all<PurchaseOrder>(`${SELECT} ORDER BY p.id DESC LIMIT ${MAX.purchases}`)
 }
 
 export async function getPurchase(id: number): Promise<PurchaseOrderWithItems> {
   const po = await q.one<PurchaseOrder>(`${SELECT} WHERE p.id = ?`, id)
   if (!po) throw new Error('أمر الشراء غير موجود')
-  const items = await q.all<PurchaseItem>('SELECT * FROM purchase_items WHERE order_id = ? ORDER BY id', id)
+  const items = await q.all<PurchaseItem>(`SELECT ${C.purchaseItem()} FROM purchase_items WHERE order_id = ? ORDER BY id LIMIT ${MAX.items}`, id)
   return { ...po, items }
 }
 
@@ -28,7 +29,7 @@ export async function createPurchase(input: NewPurchaseOrder): Promise<PurchaseO
   const id = await tx(async () => {
     const lines = []
     for (const i of input.items) {
-      const p = await q.one<Product>('SELECT * FROM products WHERE id = ?', i.product_id)
+      const p = await q.one<Product>('SELECT id, name FROM products WHERE id = ?', i.product_id)
       if (!p) throw new Error('صنف غير موجود')
       const qty = Math.round(i.qty)
       if (qty <= 0) throw new Error(`كمية غير صحيحة للصنف «${p.name}»`)

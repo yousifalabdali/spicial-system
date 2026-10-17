@@ -4,6 +4,7 @@
 import { createHash, randomBytes, scryptSync, timingSafeEqual } from 'node:crypto'
 import { nowLocal } from './index'
 import { q, tx, SQL_NOW } from './sql'
+import { C, MAX } from './columns'
 import { ALL_PERMISSIONS, DEFAULT_EMPLOYEE_PERMISSIONS, type Permission, type Role, type User, type UserInput } from '../../shared/auth'
 
 const SESSION_DAYS = 30
@@ -48,7 +49,7 @@ const DUMMY_HASH = hashPassword(randomBytes(12).toString('hex'))
 // ---- Lookups ----
 
 export async function getUser(id: number): Promise<User | null> {
-  const r = await q.one<Row>('SELECT * FROM users WHERE id = ?', id)
+  const r = await q.one<Row>(`SELECT ${C.user()} FROM users WHERE id = ?`, id)
   return r ? toUser(r) : null
 }
 
@@ -61,7 +62,7 @@ export async function activeUser(id: number | null | undefined): Promise<User | 
 export const hasUsers = async () => !!(await q.one('SELECT 1 FROM users LIMIT 1'))
 
 export async function verifyLogin(username: string, password: string): Promise<User> {
-  const r = await q.one<Row>('SELECT * FROM users WHERE lower(username) = lower(?)', String(username ?? '').trim())
+  const r = await q.one<Row>(`SELECT ${C.user()}, password_hash FROM users WHERE lower(username) = lower(?)`, String(username ?? '').trim())
   const ok = checkPassword(String(password ?? ''), r?.password_hash ?? DUMMY_HASH)
   if (!r || !ok) throw new Error('اسم المستخدم أو كلمة المرور غير صحيحة')
   if (!r.active) throw new Error('هذا الحساب موقوف. تواصل مع المسؤول')
@@ -94,7 +95,7 @@ export async function sessionUser(token: string | undefined): Promise<User | nul
   const hit = sessionCache.get(hash)
   if (hit && hit.until > Date.now()) return hit.user
   // One round trip: session and user together.
-  const r = await q.one<Row>(`SELECT u.* FROM sessions s JOIN users u ON u.id = s.user_id
+  const r = await q.one<Row>(`SELECT ${C.user('u')} FROM sessions s JOIN users u ON u.id = s.user_id
     WHERE s.token_hash = ? AND s.expires_at > ${SQL_NOW} AND u.active = 1`, hash)
   const user = r ? toUser(r) : null
   if (sessionCache.size > 5000) sessionCache.clear()
@@ -136,7 +137,7 @@ async function assertUsernameFree(username: string, exceptId = 0) {
   if (await q.one('SELECT 1 FROM users WHERE lower(username) = lower(?) AND id != ?', username, exceptId)) throw new Error('اسم المستخدم مستخدم لحساب آخر')
 }
 
-const activeSuperAdmins = async () => (await q.one<{ c: number }>("SELECT COUNT(*) AS c FROM users WHERE role = 'super_admin' AND active = 1"))!.c
+const activeSuperAdmins = async () => (await q.one<{ c: number }>("SELECT COUNT(id) AS c FROM users WHERE role = 'super_admin' AND active = 1"))!.c
 
 /** The very first account (website setup). Always a super admin. */
 export async function createFirstSuperAdmin(input: { username: string; name: string; password: string }): Promise<User> {
@@ -154,7 +155,7 @@ export async function createFirstSuperAdmin(input: { username: string; name: str
 
 export async function listUsers(actor: User): Promise<User[]> {
   if (actor.role === 'employee') throw new Error('لا تملك صلاحية إدارة المستخدمين')
-  const rows = await q.all<Row>("SELECT * FROM users ORDER BY CASE role WHEN 'super_admin' THEN 0 WHEN 'admin' THEN 1 ELSE 2 END, name")
+  const rows = await q.all<Row>(`SELECT ${C.user()} FROM users ORDER BY CASE role WHEN 'super_admin' THEN 0 WHEN 'admin' THEN 1 ELSE 2 END, name LIMIT ${MAX.users}`)
   return rows.map(toUser)
 }
 

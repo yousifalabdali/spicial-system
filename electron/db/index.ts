@@ -217,7 +217,7 @@ export function openDb(opts: { url?: string; localDir?: string }) {
 }
 
 export async function getSettings(): Promise<Settings> {
-  const rows = await q.all<{ key: string; value: string }>("SELECT key, value FROM settings WHERE key NOT LIKE '\\_%' ESCAPE '\\'")
+  const rows = await q.all<{ key: string; value: string }>("SELECT key, value FROM settings WHERE key NOT LIKE '\\_%' ESCAPE '\\' LIMIT 200")
   const stored = Object.fromEntries(rows.map((r) => [r.key, JSON.parse(r.value)]))
   return { ...DEFAULT_SETTINGS, ...stored }
 }

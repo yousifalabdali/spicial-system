@@ -1,6 +1,7 @@
 // Sales invoices: creating a sale moves stock and money in one transaction.
 import { getSettings } from './index'
 import { q, tx } from './sql'
+import { C, MAX } from './columns'
 import type { Invoice, InvoiceItem, InvoiceStatus, InvoiceWithItems, NewInvoice, Product } from '../../shared/types'
 
 function statusFor(total: number, paid: number): InvoiceStatus {
@@ -17,7 +18,7 @@ export async function createInvoice(input: NewInvoice): Promise<InvoiceWithItems
     const lines = []
     for (const item of input.items) {
       // FOR UPDATE: two tills selling the last unit at the same moment can't both succeed.
-      const p = await q.one<Product>('SELECT * FROM products WHERE id = ? AND deleted = 0 FOR UPDATE', item.product_id)
+      const p = await q.one<Product>('SELECT id, name, qty, cost FROM products WHERE id = ? AND deleted = 0 FOR UPDATE', item.product_id)
       if (!p) throw new Error('صنف غير موجود')
       const qty = Math.round(item.qty)
       if (qty <= 0) throw new Error(`كمية غير صحيحة للصنف «${p.name}»`)
@@ -64,9 +65,9 @@ export async function createInvoice(input: NewInvoice): Promise<InvoiceWithItems
 }
 
 export async function getInvoice(id: number): Promise<InvoiceWithItems> {
-  const inv = await q.one<Invoice & { customer_phone: string | null }>('SELECT i.*, c.phone AS customer_phone FROM sales_invoices i LEFT JOIN customers c ON c.id = i.customer_id WHERE i.id = ?', id)
+  const inv = await q.one<Invoice & { customer_phone: string | null }>(`SELECT ${C.invoice('i')}, c.phone AS customer_phone FROM sales_invoices i LEFT JOIN customers c ON c.id = i.customer_id WHERE i.id = ?`, id)
   if (!inv) throw new Error('الفاتورة غير موجودة')
-  const items = await q.all<InvoiceItem>('SELECT si.*, (p.image IS NOT NULL)::int AS has_image FROM sales_items si LEFT JOIN products p ON p.id = si.product_id WHERE si.invoice_id = ? ORDER BY si.id', id)
+  const items = await q.all<InvoiceItem>(`SELECT ${C.salesItem('si')}, (p.image IS NOT NULL)::int AS has_image FROM sales_items si LEFT JOIN products p ON p.id = si.product_id WHERE si.invoice_id = ? ORDER BY si.id LIMIT ${MAX.items}`, id)
   return { ...inv, items }
 }
 
@@ -78,12 +79,12 @@ export async function listInvoices(filter: { from?: string; to?: string; search?
   if (filter.status === 'due') where.push("status IN ('unpaid','partial')")
   else if (filter.status) { where.push('status = ?'); params.push(filter.status) }
   if (filter.search) { where.push('(number ILIKE ? OR customer_name ILIKE ?)'); params.push(`%${filter.search}%`, `%${filter.search}%`) }
-  return q.all<Invoice>(`SELECT * FROM sales_invoices ${where.length ? 'WHERE ' + where.join(' AND ') : ''} ORDER BY id DESC LIMIT 500`, ...params)
+  return q.all<Invoice>(`SELECT ${C.invoice()} FROM sales_invoices ${where.length ? 'WHERE ' + where.join(' AND ') : ''} ORDER BY id DESC LIMIT 500`, ...params)
 }
 
 export async function payInvoice(id: number, amount: number) {
   await tx(async () => {
-    const inv = await q.one<Invoice>('SELECT * FROM sales_invoices WHERE id = ? FOR UPDATE', id)
+    const inv = await q.one<Invoice>(`SELECT ${C.invoice()} FROM sales_invoices WHERE id = ? FOR UPDATE`, id)
     if (!inv) throw new Error('الفاتورة غير موجودة')
     if (inv.status === 'cancelled') throw new Error('الفاتورة ملغاة')
     const pay = Math.min(Math.round(amount), inv.total - inv.paid)
@@ -97,10 +98,10 @@ export async function payInvoice(id: number, amount: number) {
 
 export async function cancelInvoice(id: number) {
   await tx(async () => {
-    const inv = await q.one<Invoice>('SELECT * FROM sales_invoices WHERE id = ? FOR UPDATE', id)
+    const inv = await q.one<Invoice>(`SELECT ${C.invoice()} FROM sales_invoices WHERE id = ? FOR UPDATE`, id)
     if (!inv) throw new Error('الفاتورة غير موجودة')
     if (inv.status === 'cancelled') return
-    const items = await q.all<InvoiceItem>('SELECT * FROM sales_items WHERE invoice_id = ?', id)
+    const items = await q.all<InvoiceItem>(`SELECT ${C.salesItem()} FROM sales_items WHERE invoice_id = ? LIMIT ${MAX.items}`, id)
     for (const item of items) {
       if (!item.product_id) continue
       await q.run('UPDATE products SET qty = qty + ? WHERE id = ?', item.qty, item.product_id)

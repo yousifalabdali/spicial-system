@@ -1,5 +1,6 @@
 // Cash box movements and cheques.
 import { q, tx } from './sql'
+import { C, MAX } from './columns'
 import type { Cheque, ChequeInput, TreasuryEntry, TreasuryInput } from '../../shared/types'
 
 export async function treasuryBalance(): Promise<number> {
@@ -12,7 +13,7 @@ export async function listTreasury(filter: { from?: string; to?: string } = {}):
   const params: string[] = []
   if (filter.from) { where.push('substr(created_at, 1, 10) >= ?'); params.push(filter.from) }
   if (filter.to) { where.push('substr(created_at, 1, 10) <= ?'); params.push(filter.to) }
-  return q.all<TreasuryEntry>(`SELECT * FROM treasury ${where.length ? 'WHERE ' + where.join(' AND ') : ''} ORDER BY id DESC LIMIT 1000`, ...params)
+  return q.all<TreasuryEntry>(`SELECT ${C.treasury()} FROM treasury ${where.length ? 'WHERE ' + where.join(' AND ') : ''} ORDER BY id DESC LIMIT 1000`, ...params)
 }
 
 export async function addTreasury(input: TreasuryInput) {
@@ -30,7 +31,7 @@ export async function deleteTreasury(id: number) {
 }
 
 export async function listCheques(): Promise<Cheque[]> {
-  return q.all<Cheque>("SELECT * FROM cheques ORDER BY CASE status WHEN 'pending' THEN 0 ELSE 1 END, due_date")
+  return q.all<Cheque>(`SELECT ${C.cheque()} FROM cheques ORDER BY CASE status WHEN 'pending' THEN 0 ELSE 1 END, due_date LIMIT ${MAX.cheques}`)
 }
 
 export async function addCheque(input: ChequeInput) {
@@ -46,7 +47,7 @@ export async function addCheque(input: ChequeInput) {
 export async function setChequeStatus(id: number, status: 'cleared' | 'bounced') {
   if (status !== 'cleared' && status !== 'bounced') throw new Error('حالة غير صحيحة')
   await tx(async () => {
-    const c = await q.one<Cheque>('SELECT * FROM cheques WHERE id = ? FOR UPDATE', id)
+    const c = await q.one<Cheque>(`SELECT ${C.cheque()} FROM cheques WHERE id = ? FOR UPDATE`, id)
     if (!c) throw new Error('الشيك غير موجود')
     if (c.status !== 'pending') throw new Error('تم تحديث حالة هذا الشيك مسبقاً')
     await q.run('UPDATE cheques SET status = ? WHERE id = ?', status, id)

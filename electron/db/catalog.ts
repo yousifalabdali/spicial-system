@@ -1,5 +1,6 @@
 // Products, customers and suppliers.
 import { q, tx } from './sql'
+import { C, MAX } from './columns'
 import type { Customer, PartyInput, Product, ProductInput, Supplier } from '../../shared/types'
 
 // Lists never carry the photo itself (it can be tens of KB): has_image says whether to fetch it.
@@ -7,7 +8,7 @@ const COLS = 'id, name, code, category, unit, cost, price, qty, min_qty, created
 const MAX_IMAGE = 400_000 // characters of data URL (~300 KB of image)
 
 export async function listProducts(): Promise<Product[]> {
-  return q.all<Product>(`SELECT ${COLS} FROM products WHERE deleted = 0 ORDER BY name`)
+  return q.all<Product>(`SELECT ${COLS} FROM products WHERE deleted = 0 ORDER BY name LIMIT ${MAX.products}`)
 }
 
 export async function getProduct(id: number): Promise<Product> {
@@ -22,7 +23,7 @@ export async function getProductByCode(code: string): Promise<Product | null> {
 
 /** Products at or under their alert level, lowest first (for the bell and notifications). */
 export async function lowStockItems(): Promise<{ id: number; name: string; qty: number; min_qty: number; unit: string }[]> {
-  return q.all('SELECT id, name, qty, min_qty, unit FROM products WHERE deleted = 0 AND qty <= min_qty ORDER BY qty - min_qty, name')
+  return q.all(`SELECT id, name, qty, min_qty, unit FROM products WHERE deleted = 0 AND qty <= min_qty ORDER BY qty - min_qty, name LIMIT ${MAX.lowStock}`)
 }
 
 export async function getProductImage(id: number): Promise<string | null> {
@@ -33,7 +34,7 @@ export async function getProductImage(id: number): Promise<string | null> {
 export async function productImages(ids: (number | null)[]): Promise<Record<number, string>> {
   const wanted = [...new Set(ids.filter((id): id is number => !!id))]
   if (!wanted.length) return {}
-  const rows = await q.all<{ id: number; image: string }>(`SELECT id, image FROM products WHERE image IS NOT NULL AND id IN (${wanted.map(() => '?').join(',')})`, ...wanted)
+  const rows = await q.all<{ id: number; image: string }>(`SELECT id, image FROM products WHERE image IS NOT NULL AND id IN (${wanted.map(() => '?').join(',')}) LIMIT ${wanted.length}`, ...wanted)
   return Object.fromEntries(rows.map((r) => [r.id, r.image]))
 }
 
@@ -91,14 +92,14 @@ export async function deleteProduct(id: number) {
 
 export async function listCustomers(): Promise<Customer[]> {
   return q.all<Customer>(`
-    SELECT c.*, COALESCE((SELECT SUM(total - paid) FROM sales_invoices s WHERE s.customer_id = c.id AND s.status IN ('unpaid','partial')), 0) AS balance
-    FROM customers c ORDER BY c.name`)
+    SELECT ${C.party('c')}, COALESCE((SELECT SUM(total - paid) FROM sales_invoices s WHERE s.customer_id = c.id AND s.status IN ('unpaid','partial')), 0) AS balance
+    FROM customers c ORDER BY c.name LIMIT ${MAX.parties}`)
 }
 
 export async function listSuppliers(): Promise<Supplier[]> {
   return q.all<Supplier>(`
-    SELECT s.*, COALESCE((SELECT SUM(total - paid) FROM purchase_orders p WHERE p.supplier_id = s.id AND p.status = 'received'), 0) AS balance
-    FROM suppliers s ORDER BY s.name`)
+    SELECT ${C.party('s')}, COALESCE((SELECT SUM(total - paid) FROM purchase_orders p WHERE p.supplier_id = s.id AND p.status = 'received'), 0) AS balance
+    FROM suppliers s ORDER BY s.name LIMIT ${MAX.parties}`)
 }
 
 async function saveParty(table: 'customers' | 'suppliers', input: PartyInput & { id?: number }) {
