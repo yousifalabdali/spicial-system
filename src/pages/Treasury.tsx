@@ -35,7 +35,7 @@ function Moves() {
 
   return (
     <>
-      <div className="mb-4 grid grid-cols-3 gap-4">
+      <div className="mb-4 grid grid-cols-1 sm:grid-cols-3 gap-4">
         <StatCard label="رصيد الخزينة الحالي" value={<Money v={balance.data ?? 0} />} suffix={CURRENCY} tone="indigo" icon={<Wallet size={24} />} />
         <StatCard label="المقبوضات (الفترة)" value={<Money v={totalIn} />} suffix={CURRENCY} tone="emerald" icon={<ArrowDownCircle size={24} />} />
         <StatCard label="المدفوعات (الفترة)" value={<Money v={totalOut} />} suffix={CURRENCY} tone="rose" icon={<ArrowUpCircle size={24} />} />
@@ -134,7 +134,7 @@ function Cheques() {
 
       <Modal title="شيك جديد" open={form !== null} onClose={() => setForm(null)}>
         {form && (
-          <form className="grid grid-cols-2 gap-3" onSubmit={async (e) => {
+          <form className="grid grid-cols-1 sm:grid-cols-2 gap-3" onSubmit={async (e) => {
             e.preventDefault()
             if (await run(() => api.addCheque(form), 'تمت إضافة الشيك')) { setForm(null); reload() }
           }}>

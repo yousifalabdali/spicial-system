@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
-import { Home, ShoppingCart, Package, Wallet, Truck, BarChart3, Settings, ScanBarcode, PanelRightClose, PanelRightOpen, Plus, ShieldCheck, LogOut } from 'lucide-react'
+import { Home, ShoppingCart, Package, Wallet, Truck, BarChart3, Settings, ScanBarcode, PanelRightClose, PanelRightOpen, Plus, ShieldCheck, LogOut, Menu, X } from 'lucide-react'
 import { ScanDialog } from '../components/Barcode'
 import { StockAlerts } from '../components/StockAlerts'
 import { DesktopAutoBackup } from '../components/BackupPanel'
@@ -47,7 +47,9 @@ function ScannerStatus() {
 
 export default function Layout() {
   const [collapsed, setCollapsed] = useState(false)
+  const [drawer, setDrawer] = useState(false) // phones: the menu slides in over the page
   const { pathname } = useLocation()
+  useEffect(() => setDrawer(false), [pathname])
   const navigate = useNavigate()
   const { user, can, isManager, logout } = useAuth()
   const links = [...NAV.filter((n) => !n.perm || can(n.perm)), ...(isManager ? [ADMIN_LINK] : [])]
@@ -55,17 +57,19 @@ export default function Layout() {
 
   return (
     <div className="flex h-full">
-      <aside className={`flex shrink-0 flex-col border-l border-line bg-white transition-all ${collapsed ? 'w-[76px]' : 'w-60'}`}>
+      {drawer && <div className="fixed inset-0 z-30 bg-slate-900/40 backdrop-blur-[2px] md:hidden" onClick={() => setDrawer(false)} />}
+      <aside className={`fixed inset-y-0 right-0 z-40 flex w-64 shrink-0 flex-col border-l border-line bg-white shadow-2xl transition-transform duration-200 md:static md:z-auto md:translate-x-0 md:shadow-none md:transition-all ${drawer ? 'translate-x-0' : 'translate-x-full'} ${collapsed ? 'md:w-[76px]' : 'md:w-60'}`}>
         <div className="flex h-16 items-center gap-3 px-4">
           <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 text-white shadow-md shadow-indigo-500/30">
             <ScanBarcode size={22} />
           </div>
           {!collapsed && (
-            <div className="min-w-0 leading-tight" dir="ltr">
+            <div className="min-w-0 flex-1 leading-tight" dir="ltr">
               <div className="truncate font-bold">Sales Inventory</div>
               <div className="text-xs font-semibold text-accent">PRO</div>
             </div>
           )}
+          <button onClick={() => setDrawer(false)} className="mr-auto rounded-lg p-1.5 text-muted hover:bg-slate-100 md:hidden" title="إغلاق"><X size={20} /></button>
         </div>
 
         <nav className="mt-2 flex flex-1 flex-col gap-1 px-3">
@@ -95,27 +99,30 @@ export default function Layout() {
         )}
 
         <button onClick={() => setCollapsed((c) => !c)} title={collapsed ? 'توسيع القائمة' : 'تصغير القائمة'}
-          className="mx-3 mb-3 flex items-center justify-center gap-2 rounded-xl py-2 text-sm text-muted transition hover:bg-slate-100 hover:text-ink">
+          className="mx-3 mb-3 hidden md:flex items-center justify-center gap-2 rounded-xl py-2 text-sm text-muted transition hover:bg-slate-100 hover:text-ink">
           {collapsed ? <PanelRightOpen size={18} /> : <><PanelRightClose size={18} /> تصغير</>}
         </button>
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-16 shrink-0 items-center justify-between border-b border-line bg-white/80 px-6 backdrop-blur">
-          <div>
-            <h1 className="text-lg leading-tight font-bold">{current?.label}</h1>
-            <div className="text-xs text-muted">{DATE.format(new Date())}</div>
+        <header className="flex h-14 shrink-0 items-center justify-between gap-2 border-b border-line bg-white/80 px-3 backdrop-blur sm:h-16 sm:px-6">
+          <div className="flex min-w-0 items-center gap-2">
+            <button onClick={() => setDrawer(true)} className="rounded-lg p-2 text-slate-600 hover:bg-slate-100 md:hidden" title="القائمة"><Menu size={22} /></button>
+            <div className="min-w-0">
+              <h1 className="truncate text-base leading-tight font-bold sm:text-lg">{current?.label}</h1>
+              <div className="hidden text-xs text-muted sm:block">{DATE.format(new Date())}</div>
+            </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             {(can('inventory') || can('dashboard') || can('sales') || can('suppliers')) && <StockAlerts />}
-            <ScannerStatus />
+            <div className="hidden lg:block"><ScannerStatus /></div>
             {can('sales') && <button onClick={() => navigate('/sales')}
-              className="flex items-center gap-1.5 rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-white shadow-md shadow-indigo-500/25 transition hover:bg-indigo-700">
-              <Plus size={17} /> بيع جديد
+              className="flex items-center gap-1.5 rounded-xl bg-accent px-3 py-2 text-sm font-semibold text-white shadow-md shadow-indigo-500/25 transition hover:bg-indigo-700 sm:px-4">
+              <Plus size={17} /> <span className="hidden sm:inline">بيع جديد</span>
             </button>}
           </div>
         </header>
-        <main className="min-h-0 flex-1 overflow-auto p-6">
+        <main className="min-h-0 flex-1 overflow-auto overscroll-contain p-3 sm:p-6">
           <Outlet />
         </main>
       </div>

@@ -122,7 +122,7 @@ function ProductModal({ product, onClose, onSave }: { product: Product | Product
 
   return (
     <Modal title={id ? 'تعديل الصنف' : 'صنف جديد'} open={product !== null} onClose={onClose} width="max-w-2xl">
-      <form className="grid grid-cols-2 gap-4" onSubmit={(e) => { e.preventDefault(); submit(false) }}>
+      <form className="grid grid-cols-1 sm:grid-cols-2 gap-4" onSubmit={(e) => { e.preventDefault(); submit(false) }}>
         <Field label="اسم الصنف" className="col-span-2"><Input autoFocus={!form.name} required value={form.name} onChange={text('name')} /></Field>
 
         <div className="col-span-2">

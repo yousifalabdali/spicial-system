@@ -6,12 +6,12 @@ export function Panel({ title, actions, children, className = '' }: { title?: Re
   return (
     <section className={`rounded-2xl border border-line bg-panel shadow-[0_1px_2px_rgb(15_23_42/0.04),0_4px_16px_rgb(15_23_42/0.04)] ${className}`}>
       {(title || actions) && (
-        <header className="flex items-center justify-between gap-3 px-5 pt-4 pb-3">
+        <header className="flex flex-wrap items-center justify-between gap-3 px-4 pt-4 pb-3 sm:px-5">
           <h2 className="text-[15px] font-bold text-ink">{title}</h2>
           <div className="flex items-center gap-2">{actions}</div>
         </header>
       )}
-      <div className="px-5 pb-5">{children}</div>
+      <div className="px-4 pb-4 sm:px-5 sm:pb-5">{children}</div>
     </section>
   )
 }
@@ -116,7 +116,7 @@ export function Modal({ title, open, onClose, children, width = 'max-w-lg' }: { 
   }, [open, onClose])
   if (!open) return null
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/40 p-6 backdrop-blur-[2px]" onMouseDown={onClose}>
+    <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/40 p-2 sm:p-6 backdrop-blur-[2px]" onMouseDown={onClose}>
       <div className={`max-h-full w-full ${width} overflow-auto rounded-2xl border border-line bg-panel shadow-2xl shadow-slate-900/20`} onMouseDown={(e) => e.stopPropagation()}>
         <header className="sticky top-0 z-10 flex items-center justify-between border-b border-line bg-panel/95 px-5 py-3.5 backdrop-blur">
           <h3 className="font-bold">{title}</h3>
@@ -148,10 +148,10 @@ export function Table({ head, children, empty = 'لا توجد بيانات' }: 
 
 export function Tabs<T extends string>({ value, onChange, tabs }: { value: T; onChange: (v: T) => void; tabs: { id: T; label: string }[] }) {
   return (
-    <div className="mb-4 inline-flex gap-1 rounded-xl bg-slate-200/60 p-1">
+    <div className="mb-4 flex max-w-full gap-1 overflow-x-auto rounded-xl bg-slate-200/60 p-1 sm:inline-flex">
       {tabs.map((t) => (
         <button key={t.id} onClick={() => onChange(t.id)}
-          className={`rounded-lg px-5 py-1.5 text-sm font-semibold transition ${value === t.id ? 'bg-white text-accent shadow-sm' : 'text-muted hover:text-ink'}`}>
+          className={`shrink-0 rounded-lg px-4 py-1.5 text-sm font-semibold whitespace-nowrap transition sm:px-5 ${value === t.id ? 'bg-white text-accent shadow-sm' : 'text-muted hover:text-ink'}`}>
           {t.label}
         </button>
       ))}
@@ -161,7 +161,7 @@ export function Tabs<T extends string>({ value, onChange, tabs }: { value: T; on
 
 export function PageTitle({ children, actions }: { children: ReactNode; actions?: ReactNode }) {
   return (
-    <div className="mb-4 flex items-center justify-between">
+    <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
       <h1 className="text-2xl font-bold">{children}</h1>
       <div className="flex gap-2">{actions}</div>
     </div>

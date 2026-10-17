@@ -133,7 +133,7 @@ function Pos() {
   }
 
   return (
-    <div className="grid grid-cols-[1fr_440px] gap-4">
+    <div className="grid grid-cols-1 lg:grid-cols-[1fr_440px] gap-4">
       <Panel title="الأصناف">
         <div className="mb-3 flex items-center gap-2 rounded-xl bg-indigo-50 px-3 py-2 text-sm text-indigo-700">
           <ScanBarcode size={18} className="shrink-0" />
@@ -150,7 +150,7 @@ function Pos() {
               if (pick) add(pick)
             }} />
         </div>
-        <div className="grid max-h-[calc(100vh-300px)] grid-cols-[repeat(auto-fill,minmax(170px,1fr))] gap-3 overflow-auto p-0.5 pl-1">
+        <div className="grid max-h-[60vh] lg:max-h-[calc(100vh-300px)] grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-3 overflow-auto p-0.5 pl-1">
           {filtered.map((p) => (
             <button key={p.id} onClick={() => add(p)} disabled={p.qty <= 0}
               className="group overflow-hidden rounded-xl border border-line bg-white text-right transition hover:-translate-y-0.5 hover:border-indigo-300 hover:shadow-md hover:shadow-indigo-500/10 disabled:translate-y-0 disabled:opacity-40 disabled:shadow-none">
@@ -169,7 +169,7 @@ function Pos() {
       </Panel>
 
       <Panel title="الفاتورة" className="flex flex-col">
-        <div className="mb-3 grid grid-cols-2 gap-2">
+        <div className="mb-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
           <Field label="العميل">
             <div className="flex gap-1">
               <Select value={customerId ?? ''} onChange={(e) => {
@@ -190,7 +190,7 @@ function Pos() {
           </Field>
         </div>
 
-        <div className="max-h-[calc(100vh-560px)] min-h-32 overflow-auto rounded-xl border border-line">
+        <div className="lg:max-h-[calc(100vh-560px)] min-h-32 overflow-auto rounded-xl border border-line">
           {cart.length === 0 && (
             <div className="flex flex-col items-center gap-2 py-8 text-sm text-muted">
               <ShoppingBag size={30} className="text-slate-300" />
@@ -219,7 +219,7 @@ function Pos() {
           ))}
         </div>
 
-        <div className="mt-3 grid grid-cols-2 gap-2">
+        <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
           <Field label={`الخصم (${CURRENCY})`}>
             <MoneyInput value={discount} onChange={setDiscount} />
           </Field>
@@ -254,7 +254,7 @@ function Pos() {
           </div>
         </div>
 
-        <div className="mt-3 grid grid-cols-2 gap-2">
+        <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
           <Button variant="success" className="py-3 text-base" disabled={!cart.length || saving} onClick={() => save(true)}><Printer size={18} /> حفظ وطباعة</Button>
           <Button className="py-3 text-base" disabled={!cart.length || saving} onClick={() => save(false)}><Save size={18} /> حفظ</Button>
         </div>
@@ -284,7 +284,7 @@ function Invoices({ initialStatus, openId }: { initialStatus: string; openId: nu
 
   return (
     <Panel>
-      <div className="mb-3 grid grid-cols-[2fr_1fr_1fr_1fr] gap-2 pt-4">
+      <div className="mb-3 grid grid-cols-1 lg:grid-cols-[2fr_1fr_1fr_1fr] gap-2 pt-4">
         <Field label="بحث"><Input placeholder="رقم الفاتورة أو اسم العميل" value={filter.search} onChange={set('search')} /></Field>
         <Field label="من تاريخ"><Input type="date" value={filter.from} onChange={set('from')} /></Field>
         <Field label="إلى تاريخ"><Input type="date" value={filter.to} onChange={set('to')} /></Field>

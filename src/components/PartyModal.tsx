@@ -18,7 +18,7 @@ export function PartyModal({ title, open, party, onClose, onSave }: {
 
   return (
     <Modal title={title} open={open} onClose={onClose}>
-      <form className="grid grid-cols-2 gap-3" onSubmit={(e) => { e.preventDefault(); onSave({ ...form, id: party?.id }) }}>
+      <form className="grid grid-cols-1 sm:grid-cols-2 gap-3" onSubmit={(e) => { e.preventDefault(); onSave({ ...form, id: party?.id }) }}>
         <Field label="الاسم" className="col-span-2"><Input autoFocus required value={form.name} onChange={set('name')} /></Field>
         <Field label="الهاتف"><Input className="num text-right" value={form.phone ?? ''} onChange={set('phone')} /></Field>
         <Field label="العنوان"><Input value={form.address ?? ''} onChange={set('address')} /></Field>

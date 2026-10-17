@@ -51,7 +51,7 @@ export default function AdminPage() {
         </div>
       </div>
 
-      <div className="mb-4 grid grid-cols-4 gap-3">
+      <div className="mb-4 grid grid-cols-2 lg:grid-cols-4 gap-3">
         {([['super_admin', 'سوبر أدمن'], ['admin', 'أدمن'], ['employee', 'موظفين'], ['stopped', 'حسابات موقوفة']] as const).map(([k, label]) => (
           <div key={k} className="rounded-2xl border border-line bg-white px-4 py-3">
             <div className="text-xs font-semibold text-muted">{label}</div>
@@ -144,7 +144,7 @@ function UserModal({ target, me, onClose, onSaved }: { target: User | 'new' | nu
   return (
     <Modal title={isNew ? (isSuper ? 'مستخدم جديد' : 'موظف جديد') : self ? 'بياناتي' : `تعديل: ${(target as User | null)?.name ?? ''}`} open={target !== null} onClose={onClose} width="max-w-2xl">
       <form onSubmit={save} className="space-y-5">
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Field label="الاسم"><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required autoFocus /></Field>
           <Field label="اسم المستخدم (للدخول)"><Input dir="ltr" className="text-left" value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} required /></Field>
           <Field label={isNew ? 'كلمة المرور' : 'كلمة مرور جديدة (اتركها فارغة لعدم التغيير)'}>
@@ -177,7 +177,7 @@ function UserModal({ target, me, onClose, onSaved }: { target: User | 'new' | nu
             <p className="rounded-xl bg-violet-50 px-3 py-2.5 text-sm text-violet-800">السوبر أدمن يملك كل الصلاحيات دائماً.</p>
           ) : (
             <>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {PERMISSIONS.map((p) => {
                   const on = form.permissions.includes(p.id)
                   return (

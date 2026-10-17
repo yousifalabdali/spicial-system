@@ -50,7 +50,7 @@ export default function Reports() {
       </Panel>
 
       {r && <>
-        <div className="mb-4 grid grid-cols-4 gap-4">
+        <div className="mb-4 grid grid-cols-2 lg:grid-cols-4 gap-4">
           <Summary label="عدد الفواتير" value={<span className="num">{r.count}</span>} />
           <Summary label="صافي المبيعات (قبل الضريبة)" value={<Money v={r.subtotal - r.discount} />} />
           <Summary label="الضريبة المحصلة" value={<Money v={r.vat} />} />
@@ -77,7 +77,7 @@ export default function Reports() {
           </div>
         </Panel>
 
-        <div className="mb-4 grid grid-cols-2 gap-4">
+        <div className="mb-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Panel title="الأصناف الأكثر مبيعاً">
             <Table head={['الصنف', 'الكمية', 'المبيعات']} empty="لا توجد مبيعات في هذه الفترة">
               {r.topProducts.map((p) => <tr key={p.name}><td>{p.name}</td><td className="num text-right">{p.qty}</td><td><Money v={p.total} /></td></tr>)}

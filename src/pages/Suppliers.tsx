@@ -104,7 +104,7 @@ function NewOrderModal({ open, onClose, onSaved, run }: { open: boolean; onClose
 
   return (
     <Modal title="أمر شراء جديد" open={open} onClose={onClose} width="max-w-3xl">
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <Field label="المورد">
           <Select value={supplierId} onChange={(e) => setSupplierId(Number(e.target.value))}>
             <option value={0}>— اختر المورد —</option>
@@ -159,7 +159,7 @@ function OrderModal({ id, onClose, onChange }: { id: number | null; onClose: () 
 
   return (
     <Modal title={`أمر شراء ${po.number}`} open onClose={onClose} width="max-w-2xl">
-      <div className="mb-4 grid grid-cols-3 gap-3 text-sm">
+      <div className="mb-4 grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
         <div><div className="text-muted">المورد</div>{po.supplier_name}</div>
         <div><div className="text-muted">التاريخ</div><span className="num">{po.created_at}</span></div>
         <div><div className="text-muted">الحالة</div><span className={PURCHASE_STATUS[po.status].cls}>{PURCHASE_STATUS[po.status].label}</span></div>

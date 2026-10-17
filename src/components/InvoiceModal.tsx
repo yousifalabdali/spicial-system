@@ -33,7 +33,7 @@ export function InvoiceModal({ id, onClose, onChange }: { id: number | null; onC
 
   return (
     <Modal title={`فاتورة ${inv.number}`} open onClose={onClose} width="max-w-2xl">
-      <div className="mb-4 grid grid-cols-4 gap-3 text-sm">
+      <div className="mb-4 grid grid-cols-2 lg:grid-cols-4 gap-3 text-sm">
         <div><div className="text-muted">العميل</div>{inv.customer_name}</div>
         <div><div className="text-muted">التاريخ</div><span className="num">{inv.created_at}</span></div>
         <div><div className="text-muted">النوع / الدفع</div>{CHANNEL_LABEL[inv.channel]} · {METHOD_LABEL[inv.payment_method]}</div>
@@ -46,7 +46,7 @@ export function InvoiceModal({ id, onClose, onChange }: { id: number | null; onC
         ))}
       </Table>
 
-      <div className="mt-4 mr-auto w-72 space-y-1 text-sm">
+      <div className="mt-4 mr-auto w-full sm:w-72 space-y-1 text-sm">
         <Row label="المجموع" v={inv.subtotal} />
         {inv.discount > 0 && <Row label="الخصم" v={-inv.discount} />}
         {inv.vat > 0 && <Row label={`الضريبة ${inv.vat_rate}%`} v={inv.vat} />}

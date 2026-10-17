@@ -75,7 +75,7 @@ function DeviceBackups() {
         <Button variant="soft" disabled={busy} onClick={backupNow}><DatabaseBackup size={16} /> نسخ الآن إلى المجلد</Button>
       </div>
 
-      <div className="mb-4 grid grid-cols-3 gap-3">
+      <div className="mb-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div className={`rounded-xl border p-3 ${state.last?.ok === false ? 'border-rose-200 bg-rose-50' : 'border-line bg-slate-50'}`}>
           <div className="text-xs font-semibold text-muted">آخر نسخة</div>
           {state.last ? (
@@ -95,7 +95,7 @@ function DeviceBackups() {
         </div>
       </div>
 
-      <div className="grid grid-cols-[auto_1fr_1fr] items-end gap-3">
+      <div className="grid grid-cols-1 lg:grid-cols-[auto_1fr_1fr] items-end gap-3">
         <label className="flex cursor-pointer items-center gap-2 pb-2.5 text-sm font-semibold">
           <input type="checkbox" className="h-4 w-4 accent-indigo-600" checked={cfg.enabled} onChange={(e) => update({ enabled: e.target.checked })} />
           تفعيل النسخ التلقائي

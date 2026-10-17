@@ -59,14 +59,14 @@ export default function Dashboard() {
   return (
     <div className="mx-auto flex max-w-[1400px] flex-col gap-5">
       <div className="-mb-2 flex justify-end"><CustomizeHome layout={layout} /></div>
-      {layout.show('quick') && <div className="grid grid-cols-4 gap-4">
+      {layout.show('quick') && <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {quick.filter((q) => can(q.perm)).map((q) => (
           <button key={q.label} onClick={() => navigate(q.to)}
-            className={`flex items-center gap-3 rounded-2xl bg-gradient-to-br p-4 text-right text-white shadow-lg transition hover:-translate-y-0.5 ${q.cls}`}>
+            className={`flex items-center gap-3 rounded-2xl bg-gradient-to-br p-3 sm:p-4 text-right text-white shadow-lg transition hover:-translate-y-0.5 ${q.cls}`}>
             <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-white/20">{q.icon}</span>
             <span>
               <span className="block font-bold">{q.label}</span>
-              <span className="block text-xs text-white/80">{q.hint}</span>
+              <span className="hidden text-xs text-white/80 sm:block">{q.hint}</span>
             </span>
           </button>
         ))}
@@ -74,7 +74,7 @@ export default function Dashboard() {
 
       {layout.show('controls') && controls.some((c) => c.show) && (
         <Panel title="لوحة التحكم">
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(130px,1fr))] gap-3">
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(100px,1fr))] gap-2 sm:grid-cols-[repeat(auto-fill,minmax(130px,1fr))] sm:gap-3">
             {controls.filter((c) => c.show).map((c) => (
               <button key={c.label} onClick={() => navigate(c.to)}
                 className="flex flex-col items-center gap-2 rounded-xl border border-line px-2 py-3 text-center text-sm font-semibold transition hover:-translate-y-0.5 hover:border-indigo-200 hover:bg-indigo-50/40">
@@ -92,7 +92,7 @@ export default function Dashboard() {
       )}
 
       {(layout.show('search') || layout.show('lowStock')) && (can('sales') || can('inventory')) && (
-        <div className="grid grid-cols-[1.45fr_1fr] gap-5">
+        <div className="grid grid-cols-1 lg:grid-cols-[1.45fr_1fr] gap-5">
           {layout.show('search') && <QuickProductSearch canSell={can('sales')} canEdit={can('inventory')} />}
           {layout.show('lowStock') && <LowStockList canEdit={can('inventory')} />}
         </div>
@@ -110,7 +110,7 @@ export default function Dashboard() {
       )}
 
       {d && layout.show('stats') && <>
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard label="مبيعات الشهر" value={fmt(d.monthSales)} tone="indigo" icon={<BarChart3 size={24} />} onClick={() => navigate('/reports')} />
         <StatCard label="تحصيلات اليوم" value={fmt(d.todayCollections)} tone="emerald" icon={<Wallet size={24} />} onClick={() => navigate('/treasury')} />
         <StatCard label="مصروفات اليوم" value={fmt(d.todayExpenses)} tone="rose" icon={<Wallet size={24} />} onClick={() => navigate('/treasury')} />
@@ -123,7 +123,7 @@ export default function Dashboard() {
       <p className="-mt-3 text-xs text-muted">المبالغ بالريال العماني (ر.ع)</p>
       </>}
 
-      {d && layout.show('latest') && <div className="grid grid-cols-[1.45fr_1fr] gap-5">
+      {d && layout.show('latest') && <div className="grid grid-cols-1 lg:grid-cols-[1.45fr_1fr] gap-5">
         <Panel title="آخر الفواتير" actions={<button className="flex items-center text-sm font-semibold text-accent hover:underline" onClick={() => navigate('/sales?tab=invoices')}>عرض الكل <ChevronLeft size={16} /></button>}>
           <Table head={['رقم الفاتورة', 'العميل', 'المبلغ', 'الحالة']} empty="لا توجد فواتير بعد">
             {d.latestInvoices.map((inv) => (
@@ -151,7 +151,7 @@ export default function Dashboard() {
         </Panel>
       </div>}
 
-      {d && layout.show('charts') && <div className="grid grid-cols-[1.45fr_1fr] gap-5">
+      {d && layout.show('charts') && <div className="grid grid-cols-1 lg:grid-cols-[1.45fr_1fr] gap-5">
         <Panel title="حركة اليوم">
           <div className="h-56" dir="ltr">
             <ResponsiveContainer>

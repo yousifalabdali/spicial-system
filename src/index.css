@@ -50,3 +50,10 @@ select option { background: #fff; color: var(--color-ink); }
   thead tr { background: #eee !important; color: #000 !important; }
   * { color: #000 !important; }
 }
+
+/* Phones: iOS zooms into inputs smaller than 16px, and taps shouldn't flash grey. */
+@media (max-width: 640px) {
+  input, select, textarea { font-size: 16px !important; }
+}
+* { -webkit-tap-highlight-color: transparent; }
+button, a { touch-action: manipulation; }

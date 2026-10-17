@@ -9,7 +9,7 @@ import * as reports from './db/reports'
 import * as users from './db/users'
 import { exportBackup, restoreBackup } from './backup'
 import { sendTestEmail } from './lowStockMail'
-import { mailConfigured } from './mail'
+import { mailProvider } from './mail'
 import { labelHtml, receiptHtml } from './printHtml'
 import { isEncodable } from '../shared/barcode'
 import { can, canManageUsers, type Permission, type User, type UserInput } from '../shared/auth'
@@ -36,7 +36,7 @@ const dataHandlers = {
   exportBackup,
   restoreBackup,
   sendTestEmail: (to: string) => sendTestEmail(String(to ?? '')),
-  emailStatus: () => ({ configured: mailConfigured() }),
+  emailStatus: () => ({ configured: mailProvider() !== null, provider: mailProvider() }),
 
   /** Printing: the browser (or the desktop app) prints this HTML. */
   async invoiceHtml(id: number, paper?: PaperSize) {
