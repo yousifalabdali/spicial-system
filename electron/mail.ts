@@ -49,6 +49,7 @@ async function postJson(url: string, headers: Record<string, string>, body: unkn
   const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', ...headers }, body: JSON.stringify(body), signal: AbortSignal.timeout(15_000) })
   if (!r.ok) {
     const text = (await r.text()).slice(0, 300)
+    if (r.status === 401) throw new Error('مزوّد البريد رفض المفتاح (غير موجود أو محذوف). انسخ المفتاح من جديد كاملاً إلى متغيّرات الاستضافة ثم أعد النشر')
     throw new Error(`رفض مزوّد البريد الإرسال (HTTP ${r.status}): ${text}`)
   }
 }
@@ -61,7 +62,10 @@ export async function sendMail(to: string[], subject: string, html: string, text
   if (!from.email) throw new Error('أضف متغيّر MAIL_FROM (البريد المرسِل الموثّق لدى مزوّد البريد)')
   try {
     if (provider === 'brevo') {
-      await postJson('https://api.brevo.com/v3/smtp/email', { 'api-key': env('BREVO_API_KEY') },
+      const key = env('BREVO_API_KEY').replace(/^["']|["']$/g, '')
+      if (key.startsWith('xsmtpsib-')) throw new Error('هذا مفتاح SMTP من Brevo وليس مفتاح API. أنشئ مفتاحاً من تبويب «API Keys» (يبدأ بـ xkeysib-)')
+      if (!key.startsWith('xkeysib-')) throw new Error('مفتاح BREVO_API_KEY غير صحيح: مفتاح API من Brevo يبدأ بـ xkeysib-')
+      await postJson('https://api.brevo.com/v3/smtp/email', { 'api-key': key },
         { sender: from, to: to.map((email) => ({ email })), subject, htmlContent: html, textContent: text })
     } else if (provider === 'resend') {
       await postJson('https://api.resend.com/emails', { Authorization: `Bearer ${env('RESEND_API_KEY')}` },
