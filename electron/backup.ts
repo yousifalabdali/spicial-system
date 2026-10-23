@@ -10,7 +10,7 @@ const VERSION = 1
 // Columns restored per table (a whitelist: keys in the file never become SQL by themselves).
 // Parents come before children so foreign keys are satisfied while inserting.
 const COLUMNS: Record<string, string[]> = {
-  products: ['id', 'name', 'code', 'category', 'unit', 'cost', 'price', 'qty', 'min_qty', 'deleted', 'image', 'created_at'],
+  products: ['id', 'name', 'code', 'category', 'unit', 'cost', 'price', 'wholesale_price', 'qty', 'min_qty', 'deleted', 'image', 'created_at'],
   customers: ['id', 'name', 'phone', 'address', 'notes', 'created_at'],
   suppliers: ['id', 'name', 'phone', 'address', 'notes', 'created_at'],
   sales_invoices: ['id', 'number', 'customer_id', 'customer_name', 'channel', 'subtotal', 'discount', 'vat_rate', 'vat', 'total', 'paid', 'payment_method', 'status', 'due_date', 'notes', 'created_at'],
@@ -61,7 +61,7 @@ export async function restoreBackup(data: BackupFile) {
       for (let i = 0; i < rows.length; i += 200) {
         const chunk = rows.slice(i, i + 200)
         const params: unknown[] = []
-        const values = chunk.map((r) => `(${cols.map((c) => { params.push(r[c] ?? null); return `$${params.length}` }).join(', ')})`)
+        const values = chunk.map((r) => `(${cols.map((c) => { params.push(r[c] ?? (c === 'wholesale_price' ? 0 : null)); return `$${params.length}` }).join(', ')})`)
         await q.raw(`INSERT INTO ${t} (${cols.join(', ')}) VALUES ${values.join(', ')}`, params)
       }
       // Next new id continues after the restored rows.

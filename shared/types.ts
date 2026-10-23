@@ -17,6 +17,7 @@ export interface Product {
   unit: string
   cost: number
   price: number
+  wholesale_price: number // 0 = none set, the normal price is used for wholesale sales
   qty: number
   min_qty: number
   created_at: string

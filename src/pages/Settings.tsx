@@ -188,7 +188,7 @@ export default function SettingsPage() {
           </div>
           <div className="w-full sm:w-72 rounded-xl bg-slate-100 p-4">
             <div className="mb-2 text-xs font-semibold text-muted">معاينة</div>
-            <LabelPreview settings={form} product={{ id: 0, name: 'مثال: عصير برتقال 1 لتر', code: '6281234567890', category: null, unit: 'حبة', cost: 0, price: 1250, qty: 0, min_qty: 0, created_at: '', has_image: 0 }} />
+            <LabelPreview settings={form} product={{ id: 0, name: 'مثال: عصير برتقال 1 لتر', code: '6281234567890', category: null, unit: 'حبة', cost: 0, price: 1250, wholesale_price: 0, qty: 0, min_qty: 0, created_at: '', has_image: 0 }} />
           </div>
         </div>
         {isDesktop && <p className="mt-3 text-xs text-muted">لطابعة ملصقات (مثل Xprinter أو Zebra) اخترها هنا، وفعّل «طباعة مباشرة بدون نافذة الطباعة» في قسم الطباعة لتطبع فوراً.</p>}

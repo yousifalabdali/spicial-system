@@ -67,11 +67,18 @@ function Pos() {
     return list.filter((p) => p.name.toLowerCase().includes(q) || p.code?.toLowerCase().includes(q) || p.category?.toLowerCase().includes(q))
   }, [products.data, search])
 
+  // Wholesale sales use the product's wholesale price when one is set.
+  const priceFor = (p: Product, ch: Channel) => (ch === 'wholesale' && p.wholesale_price > 0 ? p.wholesale_price : p.price)
+  const changeChannel = (ch: Channel) => {
+    setChannel(ch)
+    setCart((c) => c.map((l) => ({ ...l, price: priceFor(l.product, ch) })))
+  }
+
   const add = (p: Product) => {
     setCart((c) => {
       const line = c.find((l) => l.product.id === p.id)
       if (line) return c.map((l) => (l === line ? { ...l, qty: Math.min(l.qty + 1, p.qty) } : l))
-      return [...c, { product: p, qty: 1, price: p.price }]
+      return [...c, { product: p, qty: 1, price: priceFor(p, channel) }]
     })
     setFlash((f) => ({ id: p.id, n: (f?.n ?? 0) + 1 }))
     setSearch('')
@@ -158,7 +165,7 @@ function Pos() {
               <div className="p-3">
                 <div className="line-clamp-2 min-h-10 text-sm font-semibold">{p.name}</div>
                 <div className="mt-2 flex items-end justify-between">
-                  <span className="num rounded-lg bg-indigo-50 px-2 py-0.5 font-bold text-accent">{fmt(p.price)}</span>
+                  <span className="num rounded-lg bg-indigo-50 px-2 py-0.5 font-bold text-accent">{fmt(priceFor(p, channel))}</span>
                   <span className={`text-xs ${p.qty <= p.min_qty ? 'font-semibold text-amber-600' : 'text-muted'}`}>متوفر <span className="num">{p.qty}</span></span>
                 </div>
               </div>
@@ -184,7 +191,7 @@ function Pos() {
             </div>
           </Field>
           <Field label="نوع البيع">
-            <Select value={channel} onChange={(e) => setChannel(e.target.value as Channel)}>
+            <Select value={channel} onChange={(e) => changeChannel(e.target.value as Channel)}>
               {Object.entries(CHANNEL_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
             </Select>
           </Field>

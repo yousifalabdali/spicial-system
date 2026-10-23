@@ -12,7 +12,7 @@ import { ImagePicker, ProductImage, forgetProductImage } from '../components/Pro
 import { STOCK_CHANGED } from '../components/StockAlerts'
 import type { Product, ProductInput } from '../../shared/types'
 
-const EMPTY: ProductInput = { name: '', code: '', category: '', unit: 'حبة', cost: 0, price: 0, qty: 0, min_qty: 0 }
+const EMPTY: ProductInput = { name: '', code: '', category: '', unit: 'حبة', cost: 0, price: 0, wholesale_price: 0, qty: 0, min_qty: 0 }
 
 export default function Inventory() {
   const [params, setParams] = useSearchParams()
@@ -55,7 +55,7 @@ export default function Inventory() {
             <AlertTriangle size={16} /> منخفضة المخزون (<span className="num">{lowCount}</span>)
           </Button>
         </div>
-        <Table head={['الصنف', 'الباركود', 'التصنيف', 'سعر الشراء', 'سعر البيع', 'الكمية', 'حد التنبيه', 'القيمة', '']} empty="لا توجد أصناف">
+        <Table head={['الصنف', 'الباركود', 'التصنيف', 'سعر الشراء', 'سعر البيع', 'سعر الجملة', 'الكمية', 'حد التنبيه', 'القيمة', '']} empty="لا توجد أصناف">
           {rows.map((p) => (
             <tr key={p.id}>
               <td>
@@ -68,6 +68,7 @@ export default function Inventory() {
               <td>{p.category && <span className="rounded-lg bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-600">{p.category}</span>}</td>
               <td><Money v={p.cost} /></td>
               <td><Money v={p.price} className="font-semibold" /></td>
+              <td>{p.wholesale_price ? <Money v={p.wholesale_price} /> : <span className="text-slate-300">—</span>}</td>
               <td>
                 <span className={`num inline-flex items-baseline gap-1 rounded-lg px-2 py-0.5 font-bold ${p.qty <= p.min_qty ? 'bg-amber-50 text-amber-700' : 'text-ink'}`}>
                   {p.qty} <span className="text-xs font-normal text-muted">{p.unit}</span>
@@ -148,8 +149,11 @@ function ProductModal({ product, onClose, onSave }: { product: Product | Product
 
         <Field label="التصنيف"><Input value={form.category ?? ''} onChange={text('category')} /></Field>
         <Field label="الوحدة"><Input value={form.unit} onChange={text('unit')} /></Field>
-        <Field label={`سعر الشراء (${CURRENCY})`}><MoneyInput value={form.cost} onChange={(cost) => setForm({ ...form, cost })} /></Field>
-        <Field label={`سعر البيع (${CURRENCY})`}><MoneyInput value={form.price} onChange={(price) => setForm({ ...form, price })} /></Field>
+        <div className="col-span-2 grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <Field label={`سعر الشراء (${CURRENCY})`}><MoneyInput value={form.cost} onChange={(cost) => setForm({ ...form, cost })} /></Field>
+          <Field label={`سعر البيع (${CURRENCY})`}><MoneyInput value={form.price} onChange={(price) => setForm({ ...form, price })} /></Field>
+          <Field label={`سعر الجملة (${CURRENCY})`}><MoneyInput value={form.wholesale_price} onChange={(wholesale_price) => setForm({ ...form, wholesale_price })} /></Field>
+        </div>
         <Field label="الكمية الحالية"><Input type="number" className="num text-right" value={form.qty} onChange={int('qty')} /></Field>
         <Field label="حد التنبيه (أقل كمية)"><Input type="number" min="0" className="num text-right" value={form.min_qty} onChange={int('min_qty')} /></Field>
         <div className="col-span-2 text-sm text-muted">

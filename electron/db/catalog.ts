@@ -4,7 +4,7 @@ import { C, MAX } from './columns'
 import type { Customer, PartyInput, Product, ProductInput, Supplier } from '../../shared/types'
 
 // Lists never carry the photo itself (it can be tens of KB): has_image says whether to fetch it.
-const COLS = 'id, name, code, category, unit, cost, price, qty, min_qty, created_at, (image IS NOT NULL)::int AS has_image'
+const COLS = 'id, name, code, category, unit, cost, price, wholesale_price, qty, min_qty, created_at, (image IS NOT NULL)::int AS has_image'
 const MAX_IMAGE = 400_000 // characters of data URL (~300 KB of image)
 
 export async function listProducts(): Promise<Product[]> {
@@ -53,6 +53,7 @@ function cleanProduct(p: ProductInput) {
     unit: p.unit?.trim() || 'حبة',
     cost: Math.round(p.cost) || 0,
     price: Math.round(p.price) || 0,
+    wholesale_price: Math.round(p.wholesale_price) || 0,
     qty: Math.round(p.qty) || 0,
     min_qty: Math.round(p.min_qty) || 0,
   }
@@ -71,14 +72,14 @@ export async function saveProduct(input: ProductInput & { id?: number }): Promis
     if (input.id) {
       const before = await q.one<{ qty: number }>('SELECT qty FROM products WHERE id = ? FOR UPDATE', input.id)
       if (!before) throw new Error('الصنف غير موجود')
-      await q.run('UPDATE products SET name = ?, code = ?, category = ?, unit = ?, cost = ?, price = ?, qty = ?, min_qty = ? WHERE id = ?',
-        p.name, p.code, p.category, p.unit, p.cost, p.price, p.qty, p.min_qty, input.id)
+      await q.run('UPDATE products SET name = ?, code = ?, category = ?, unit = ?, cost = ?, price = ?, wholesale_price = ?, qty = ?, min_qty = ? WHERE id = ?',
+        p.name, p.code, p.category, p.unit, p.cost, p.price, p.wholesale_price, p.qty, p.min_qty, input.id)
       if (before.qty !== p.qty) await q.run("INSERT INTO stock_moves (product_id, change, reason) VALUES (?, ?, 'adjust')", input.id, p.qty - before.qty)
       if (input.image !== undefined) await q.run('UPDATE products SET image = ? WHERE id = ?', input.image, input.id)
       return input.id
     }
-    const newId = await q.insert('INSERT INTO products (name, code, category, unit, cost, price, qty, min_qty, image) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      p.name, p.code, p.category, p.unit, p.cost, p.price, p.qty, p.min_qty, input.image || null)
+    const newId = await q.insert('INSERT INTO products (name, code, category, unit, cost, price, wholesale_price, qty, min_qty, image) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      p.name, p.code, p.category, p.unit, p.cost, p.price, p.wholesale_price, p.qty, p.min_qty, input.image || null)
     if (p.qty) await q.run("INSERT INTO stock_moves (product_id, change, reason) VALUES (?, ?, 'opening')", newId, p.qty)
     return newId
   })

@@ -151,6 +151,7 @@ const SCHEMA = [
 // Indexes for the lookups the screens make (joins, filters, the session check on every request).
 const INDEXES = [
   'ALTER TABLE products ADD COLUMN IF NOT EXISTS low_alert_sent INTEGER NOT NULL DEFAULT 0',
+  'ALTER TABLE products ADD COLUMN IF NOT EXISTS wholesale_price INTEGER NOT NULL DEFAULT 0',
   'CREATE INDEX IF NOT EXISTS idx_sales_customer ON sales_invoices(customer_id)',
   'CREATE INDEX IF NOT EXISTS idx_sales_status ON sales_invoices(status)',
   'CREATE INDEX IF NOT EXISTS idx_sales_items_product ON sales_items(product_id)',
@@ -165,7 +166,7 @@ const INDEXES = [
 ]
 
 /** Bump when SCHEMA, INDEXES or LOCKDOWN change; servers then re-run them once. */
-const SCHEMA_VERSION = '3'
+const SCHEMA_VERSION = '4'
 
 const TABLES = ['settings', 'products', 'customers', 'suppliers', 'sales_invoices', 'sales_items', 'purchase_orders', 'purchase_items', 'treasury', 'cheques', 'stock_moves', 'users', 'sessions', 'login_attempts']
 

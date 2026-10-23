@@ -33,7 +33,7 @@ export async function seedIfEmpty() {
     ] as const
     const ids: number[] = []
     for (const [name, code, category, unit, cost, price, qty, min] of products) {
-      ids.push((await saveProduct({ name, code, category, unit, cost: r(cost), price: r(price), qty, min_qty: min })).id)
+      ids.push((await saveProduct({ name, code, category, unit, cost: r(cost), price: r(price), wholesale_price: r(Math.round(price * 90) / 100), qty, min_qty: min })).id)
     }
 
     const customers: number[] = []
